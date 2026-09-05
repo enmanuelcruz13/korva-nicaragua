@@ -6,7 +6,7 @@ from django.views.decorators.http import require_POST
 from django.utils import timezone
 from .models import KorvaAIConfig, AIConversation, AIMessage
 from django.conf import settings
-import google.generativeai as genai
+import requests
 import json
 
 @login_required(login_url='login')
@@ -148,7 +148,7 @@ def send_ai_message(request, conversation_id):
 
 
 def generate_ai_response(conversation, content, user_message):
-    """Llama a la IA y guarda la respuesta. Devuelve el texto."""
+    """Llama a Gemini (API REST) y guarda la respuesta. Devuelve el texto."""
     profile = conversation.user
     ai_config = profile.ai_config
     
@@ -160,55 +160,74 @@ def generate_ai_response(conversation, content, user_message):
         if not api_key:
             raise ValueError("No hay clave de API configurada")
     
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel(
-        'gemini-pro',
-        system_instruction="""Eres Korva IA, un asistente virtual especializado en negocios y emprendimiento para PyMEs en Nicaragua. 
-        SOLO puedes responder sobre: planes de negocio, marketing, finanzas, impuestos, registro de empresas, RUC, 
-        estrategias de ventas, atención al cliente, productos, servicios, y temas relacionados con el mundo empresarial nicaragüense.
-        
-        REGLAS ESTRICTAS:
-        - NO puedes insultar, usar lenguaje ofensivo o discriminatorio
-        - NO puedes hablar de temas +18, sexuales, violencia, drogas, política partidista, religión
-        - NO puedes hacer tareas académicas, resolver exámenes o trabajar por el usuario
-        - NO puedes dar consejos médicos, legales (sin aclarar que no eres abogado) o financieros de inversión
-        - Si el usuario insiste en temas no permitidos, responde amablemente que solo ayudas con temas empresariales
-        - Mantén un tono profesional, amable y servicial
-        - Responde SIEMPRE en español"""
+    system_instruction = (
+        "Eres Korva IA, un asistente virtual especializado en negocios y emprendimiento "
+        "para PyMEs en Nicaragua. "
+        "SOLO puedes responder sobre: planes de negocio, marketing, finanzas, impuestos, "
+        "registro de empresas, RUC, estrategias de ventas, atención al cliente, productos, "
+        "servicios, y temas relacionados con el mundo empresarial nicaragüense.\n\n"
+        "REGLAS ESTRICTAS:\n"
+        "- NO puedes insultar, usar lenguaje ofensivo o discriminatorio\n"
+        "- NO puedes hablar de temas +18, sexuales, violencia, drogas, política partidista, religión\n"
+        "- NO puedes hacer tareas académicas, resolver exámenes o trabajar por el usuario\n"
+        "- NO puedes dar consejos médicos, legales (sin aclarar que no eres abogado) o financieros de inversión\n"
+        "- Si el usuario insiste en temas no permitidos, responde amablemente que solo ayudas con temas empresariales\n"
+        "- Mantén un tono profesional, amable y servicial\n"
+        "- Responde SIEMPRE en español"
     )
     
     # Construir historial de conversación (sin el nuevo mensaje, que va al final)
-    history = []
+    contents = []
     for msg in conversation.messages.exclude(pk=user_message.pk).order_by('timestamp'):
-        history.append({
+        contents.append({
             'role': msg.role,
-            'parts': [msg.content]
+            'parts': [{'text': msg.content}]
         })
-    
-    # Añadir el nuevo mensaje
-    history.append({
+    contents.append({
         'role': 'user',
-        'parts': [content]
+        'parts': [{'text': content}]
     })
     
-    # Obtener respuesta de IA
-    chat = model.start_chat(history=history)
-    response = chat.send_message(content)
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent"
+    payload = {
+        'systemInstruction': {
+            'parts': [{'text': system_instruction}]
+        },
+        'contents': contents,
+    }
+    
+    response = requests.post(
+        url,
+        params={'key': api_key},
+        headers={'Content-Type': 'application/json'},
+        json=payload,
+        timeout=60,
+    )
+    response.raise_for_status()
+    data = response.json()
+    
+    if not data.get('candidates'):
+        raise ValueError("La IA no devolvió respuesta")
+    
+    response_text = data['candidates'][0]['content']['parts'][0]['text']
     
     # Guardar respuesta de IA
-    ai_response = AIMessage.objects.create(
+    AIMessage.objects.create(
         conversation=conversation,
         role='assistant',
-        content=response.text
+        content=response_text
     )
     
     # Registrar tokens usados
     try:
-        ai_config.add_tokens_used(len(response.text) + len(content))
+        usage = data.get('usageMetadata', {})
+        token_count = (usage.get('promptTokenCount', 0) or 0) + (usage.get('candidatesTokenCount', 0) or 0)
+        if token_count:
+            ai_config.add_tokens_used(token_count)
     except Exception:
         pass
     
-    return response.text
+    return response_text
 
 
 @login_required(login_url='login')
