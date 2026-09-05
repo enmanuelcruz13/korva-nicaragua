@@ -128,7 +128,10 @@
         
         addMessage('user', content);
         
-        const formData = new FormData(form);
+        const formData = new FormData();
+        formData.append('message', content);
+        const csrfInput = form.querySelector('input[name="csrfmiddlewaretoken"]');
+        if (csrfInput) formData.append('csrfmiddlewaretoken', csrfInput.value);
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 90000);
         fetch(form.action, {
