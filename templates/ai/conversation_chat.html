@@ -129,10 +129,13 @@
         addMessage('user', content);
         
         const formData = new FormData(form);
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 90000);
         fetch(form.action, {
             method: 'POST',
             body: formData,
-            headers: {'X-Requested-With': 'XMLHttpRequest'}
+            headers: {'X-Requested-With': 'XMLHttpRequest'},
+            signal: controller.signal
         })
         .then(r => r.json().then(data => ({ok: r.ok, data})))
         .then(({ok, data}) => {
@@ -142,8 +145,12 @@
                 addMessage('assistant', '⚠️ ' + (data.error || 'Ocurrió un error. Intenta de nuevo.'));
             }
         })
-        .catch(() => {
-            addMessage('assistant', '⚠️ Error de conexión. Intenta de nuevo.');
+        .catch((err) => {
+            if (err.name === 'AbortError') {
+                addMessage('assistant', '⚠️ La IA tardó demasiado. El servidor se estaba despertando — envíalo de nuevo.');
+            } else {
+                addMessage('assistant', '⚠️ Error de conexión. Intenta de nuevo.');
+            }
         })
         .finally(() => {
             typing.classList.add('hidden');
@@ -151,6 +158,7 @@
             sendBtn.disabled = false;
             sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
             input.focus();
+            clearTimeout(timer);
         });
     });
     
