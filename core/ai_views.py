@@ -196,13 +196,21 @@ def generate_ai_response(conversation, content, user_message):
         'contents': contents,
     }
     
-    response = requests.post(
-        url,
-        params={'key': api_key},
-        headers={'Content-Type': 'application/json'},
-        json=payload,
-        timeout=60,
-    )
+    # Gemini a veces satura (503 por alta demanda); reintentar con backoff
+    import time
+    response = None
+    for attempt in range(3):
+        response = requests.post(
+            url,
+            params={'key': api_key},
+            headers={'Content-Type': 'application/json'},
+            json=payload,
+            timeout=60,
+        )
+        if response.status_code == 503 or response.status_code == 429:
+            time.sleep(2 * (attempt + 1))
+            continue
+        break
     response.raise_for_status()
     data = response.json()
     
