@@ -264,3 +264,22 @@
             });
         }
     });
+
+    // User Dropdown (avatar) - abre al tocar (móvil y desktop)
+    document.addEventListener('DOMContentLoaded', function() {
+        const btn = document.getElementById('user-menu-btn');
+        const dd = document.getElementById('user-menu-dd');
+
+        if (btn && dd) {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                dd.classList.toggle('hidden');
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!btn.contains(e.target) && !dd.contains(e.target)) {
+                    dd.classList.add('hidden');
+                }
+            });
+        }
+    });

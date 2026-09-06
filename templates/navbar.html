@@ -45,15 +45,16 @@
                 </button>
                 
                 {% if user.is_authenticated %}
-                    <div class="relative group">
-                        <button class="flex items-center space-x-2 korva-btn-primary px-4 py-2 rounded-lg text-sm font-medium">
+                    <div class="relative" id="user-menu">
+                        <button type="button" id="user-menu-btn" class="flex items-center space-x-2 korva-btn-primary px-4 py-2 rounded-lg text-sm font-medium">
                             <i class="fas fa-user"></i>
                             <span class="hidden sm:inline">{{ user.username }}</span>
                             <i class="fas fa-chevron-down text-xs"></i>
                         </button>
                         
                         <!-- Dropdown Menu -->
-                        <div class="absolute right-0 mt-2 w-48 bg-korva-card border border-korva-dark-alt rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition">
+                        <div id="user-menu-dd"
+                             class="hidden absolute right-0 mt-2 w-48 bg-korva-card border border-korva-dark-alt rounded-lg shadow-xl z-50">
                             <a href="{% url 'profile' user.username %}" class="block px-4 py-2 text-gray-300 hover:text-korva-success hover:bg-korva-dark-alt transition">
                                 <i class="fas fa-user-circle"></i> Mi Perfil
                             </a>
