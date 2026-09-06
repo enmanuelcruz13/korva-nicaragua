@@ -24,8 +24,48 @@
         </div>
     </div>
 
+    <!-- Filtros y búsqueda -->
+    <div class="korva-card rounded-xl border border-korva-dark-alt p-4 mb-4">
+        <form id="map-filter-form" method="get" class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+            <div>
+                <label for="f-city" class="block text-xs text-gray-400 mb-1">Ciudad</label>
+                <select id="f-city" name="city" class="korva-input w-full">
+                    <option value="">Todas</option>
+                    {% for c in profile_cities %}
+                    <option value="{{ c.0 }}" {% if city == c.0 %}selected{% endif %}>{{ c.1 }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="f-sector" class="block text-xs text-gray-400 mb-1">Sector</label>
+                <select id="f-sector" name="sector" class="korva-input w-full">
+                    <option value="">Todos</option>
+                    {% for s in profile_sectors %}
+                    <option value="{{ s.0 }}" {% if sector == s.0 %}selected{% endif %}>{{ s.1 }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="md:col-span-2">
+                <label for="f-q" class="block text-xs text-gray-400 mb-1">Buscar negocio</label>
+                <input id="f-q" type="text" name="q" value="{{ q|default:'' }}"
+                       placeholder="Ej: panadería, café, tecnología..."
+                       class="korva-input w-full">
+            </div>
+            <div class="flex gap-2 md:col-span-4">
+                <button type="submit" class="korva-btn-primary px-5 py-2 rounded-lg text-sm font-semibold">
+                    <i class="fas fa-filter mr-2"></i> Filtrar
+                </button>
+                <a href="{% url 'business_map' %}" id="map-reset-btn"
+                   class="px-5 py-2 bg-korva-dark-alt text-gray-300 rounded-lg text-sm font-semibold border border-korva-dark-alt
+                          {% if not city and not sector and not q %}pointer-events-none opacity-40{% endif %}">
+                    Limpiar
+                </a>
+            </div>
+        </form>
+    </div>
+
     <div class="korva-card rounded-xl border border-korva-dark-alt overflow-hidden">
-        <div id="korva-map" class="w-full" style="height: 65vh; min-height: 480px;"></div>
+        <div id="korva-map" class="w-full" style="height: 62vh; min-height: 460px;"></div>
     </div>
 
     <div id="map-stats" class="mt-4 text-sm text-gray-400">
@@ -36,11 +76,8 @@
 
 {% block extra_js %}
 <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
-{{ businesses_json|json_script:"businesses-data" }}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    var data = JSON.parse(document.getElementById('businesses-data').textContent);
-
     var map = L.map('korva-map');
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
@@ -54,43 +91,70 @@ document.addEventListener('DOMContentLoaded', function () {
         bronce: L.divIcon({ className: 'korva-marker', html: '<div class="korva-marker-pin korva-marker-bronce"><i class="fas fa-building"></i></div>', iconSize: [34, 34], iconAnchor: [17, 34], popupAnchor: [0, -34] })
     };
 
-    var bounds = [];
-    var markers = [];
-    data.forEach(function (b) {
-        var icon = icons[b.tier] || icons.bronce;
-        var m = L.marker([b.lat, b.lng], { icon: icon }).addTo(map);
-        bounds.push([b.lat, b.lng]);
-        markers.push(m);
+    var markerLayer = L.layerGroup().addTo(map);
 
-        var logoHTML = b.logo
-            ? '<img src="' + b.logo + '" class="w-9 h-9 rounded-full object-cover">'
-            : '<div class="w-9 h-9 rounded-full bg-korva-success flex items-center justify-center text-white text-xs"><i class="fas fa-building"></i></div>';
+    function render(data) {
+        markerLayer.clearLayers();
+        var bounds = [];
+        data.forEach(function (b) {
+            var icon = icons[b.tier] || icons.bronce;
+            var m = L.marker([b.lat, b.lng], { icon: icon }).addTo(markerLayer);
+            bounds.push([b.lat, b.lng]);
 
-        var verifiedHTML = b.verified ? ' <span class="text-korva-success" title="Verificado"><i class="fas fa-check-circle"></i></span>' : '';
-        var tierBadge = '<span class="korva-chip text-xs">' + b.tier_display + '</span>';
+            var logoHTML = b.logo
+                ? '<img src="' + b.logo + '" class="w-9 h-9 rounded-full object-cover">'
+                : '<div class="w-9 h-9 rounded-full bg-korva-success flex items-center justify-center text-white text-xs"><i class="fas fa-building"></i></div>';
 
-        m.bindPopup(
-            '<div class="min-w-[220px]">' +
-            '<div class="flex items-center gap-3 mb-2">' + logoHTML + 
-            '<div><div class="font-bold text-white text-sm leading-tight">' + b.name + verifiedHTML + '</div>' +
-            '<div class="text-gray-400 text-xs">' + b.city + ' · ' + b.sector + '</div></div></div>' +
-            '<div class="flex items-center gap-2 mb-3">' + tierBadge +
-            '<span class="text-gray-500 text-xs"><i class="fas fa-fire"></i> ' + b.popularity + ' pts</span></div>' +
-            '<a href="' + b.profile_url + '" class="korva-btn-primary px-3 py-1.5 rounded-lg text-xs inline-block w-full text-center">Ver negocio</a>' +
-            '</div>'
-        );
-    });
+            var verifiedHTML = b.verified ? ' <span class="text-korva-success" title="Verificado"><i class="fas fa-check-circle"></i></span>' : '';
+            var tierBadge = '<span class="korva-chip text-xs">' + b.tier_display + '</span>';
 
-    if (bounds.length > 0) {
-        map.fitBounds(bounds, { padding: [60, 60] });
-    } else {
-        map.setView([12.8654, -85.2072], 7); // Nicaragua
+            m.bindPopup(
+                '<div class="min-w-[220px]">' +
+                '<div class="flex items-center gap-3 mb-2">' + logoHTML + 
+                '<div><div class="font-bold text-white text-sm leading-tight">' + b.name + verifiedHTML + '</div>' +
+                '<div class="text-gray-400 text-xs">' + b.city_display + ' · ' + b.sector_display + '</div></div></div>' +
+                '<div class="flex items-center gap-2 mb-3">' + tierBadge +
+                '<span class="text-gray-500 text-xs"><i class="fas fa-fire"></i> ' + b.popularity + ' pts</span></div>' +
+                '<a href="' + b.profile_url + '" class="korva-btn-primary px-3 py-1.5 rounded-lg text-xs inline-block w-full text-center">Ver negocio</a>' +
+                '</div>'
+            );
+        });
+
+        if (bounds.length > 0) {
+            map.fitBounds(bounds, { padding: [60, 60] });
+        } else {
+            map.setView([12.8654, -85.2072], 7); // Nicaragua
+        }
+
+        document.getElementById('map-stats').textContent =
+            data.length + (data.length === 1 ? ' negocio en el mapa' : ' negocios en el mapa');
     }
 
-    document.getElementById('map-stats').textContent =
-        markers.length + ' negocios en el mapa';
+    function loadData() {
+        var params = new URLSearchParams();
+        var city = document.getElementById('f-city').value;
+        var sector = document.getElementById('f-sector').value;
+        var q = document.getElementById('f-q').value.trim();
+        if (city) params.set('city', city);
+        if (sector) params.set('sector', sector);
+        if (q) params.set('q', q);
 
-    // Recalcular tamaño por si Leaflet cargó antes de layout
+        document.getElementById('map-stats').textContent = 'Cargando negocios...';
+        fetch('{{ map_data_url }}' + '?' + params.toString())
+            .then(function (r) { return r.json(); })
+            .then(function (j) { render(j.businesses); })
+            .catch(function () {
+                document.getElementById('map-stats').textContent = 'Error al cargar negocios.';
+            });
+    }
+
+    document.getElementById('map-filter-form').addEventListener('submit', function (e) {
+        e.preventDefault();
+        loadData();
+    });
+
+    loadData();
+
     setTimeout(function () { map.invalidateSize(); }, 200);
 });
 </script>

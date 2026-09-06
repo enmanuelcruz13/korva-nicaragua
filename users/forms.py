@@ -79,7 +79,7 @@ class ProfileUpdateForm(forms.ModelForm):
     
     class Meta:
         model = Profile
-        fields = ['business_name', 'logo', 'banner', 'ruc', 'city', 'sector', 'bio']
+        fields = ['business_name', 'logo', 'banner', 'ruc', 'city', 'sector', 'bio', 'latitude', 'longitude']
         widgets = {
             'business_name': forms.TextInput(attrs={
                 'class': 'korva-input w-full',
@@ -102,4 +102,6 @@ class ProfileUpdateForm(forms.ModelForm):
             'sector': forms.Select(attrs={
                 'class': 'korva-input w-full'
             }),
+            'latitude': forms.HiddenInput(attrs={'id': 'id_latitude'}),
+            'longitude': forms.HiddenInput(attrs={'id': 'id_longitude'}),
         }

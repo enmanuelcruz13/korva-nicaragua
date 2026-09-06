@@ -1,6 +1,10 @@
 {% extends 'base.html' %}
-
+{% load static %}
 {% block title %}Editar Perfil - Korva Nicaragua{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
+{% endblock %}
 
 {% block content %}
 <div class="max-w-2xl mx-auto px-4 py-8">
@@ -83,6 +87,33 @@
                 {% endif %}
             </div>
 
+            <!-- Ubicación en el mapa -->
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">
+                    Ubicación en el Mapa
+                </label>
+                <p class="text-xs text-gray-500 mb-2">
+                    Arrastra el marcador hacia la ubicación exacta de tu negocio
+                </p>
+                <div id="location-map" class="w-full rounded-lg border border-korva-dark-alt" style="height: 320px;"></div>
+                <div class="flex flex-wrap gap-3 mt-2 items-center">
+                    <button type="button" id="loc-autodetect" class="korva-btn-primary px-4 py-2 rounded-lg text-sm font-medium">
+                        <i class="fas fa-location-crosshairs mr-2"></i>Usar mi ubicación actual
+                    </button>
+                    <div id="loc-coords" class="text-xs text-gray-400 font-mono">
+                        {% if profile.latitude %}📍 {{ profile.latitude|floatformat:5 }}, {{ profile.longitude|floatformat:5 }}{% else %}Sin ubicación definida{% endif %}
+                    </div>
+                </div>
+                {{ form.latitude }}
+                {{ form.longitude }}
+                {% if form.latitude.errors %}
+                <p class="text-red-400 text-sm mt-1">{{ form.latitude.errors }}</p>
+                {% endif %}
+                {% if form.longitude.errors %}
+                <p class="text-red-400 text-sm mt-1">{{ form.longitude.errors }}</p>
+                {% endif %}
+            </div>
+
             <!-- Sector -->
             <div>
                 <label for="{{ form.sector.id_for_label }}" class="block text-sm font-medium text-gray-300 mb-1">
@@ -129,4 +160,80 @@
         </form>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var latInput = document.getElementById('id_latitude');
+    var lngInput = document.getElementById('id_longitude');
+    var coordsDiv = document.getElementById('loc-coords');
+
+    var defaultLat = 12.8654;
+    var defaultLng = -85.2072;
+    if (latInput.value && lngInput.value) {
+        defaultLat = parseFloat(latInput.value);
+        defaultLng = parseFloat(lngInput.value);
+    }
+
+    var map = L.map('location-map').setView([defaultLat, defaultLng], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Intentar centrar en Nicaragua si no hay ubicación
+    if (!latInput.value || !lngInput.value) {
+        map.setView([12.8654, -85.2072], 7);
+    }
+
+    var marker = L.marker([defaultLat, defaultLng], { draggable: true }).addTo(map);
+
+    function updateCoords(lat, lng) {
+        latInput.value = lat.toFixed(6);
+        lngInput.value = lng.toFixed(6);
+        coordsDiv.textContent = '📍 ' + lat.toFixed(5) + ', ' + lng.toFixed(5);
+        map.setView([lat, lng], Math.max(map.getZoom(), 13));
+    }
+
+    marker.on('dragend', function (e) {
+        var pos = marker.getLatLng();
+        updateCoords(pos.lat, pos.lng);
+    });
+
+    map.on('click', function (e) {
+        marker.setLatLng(e.latlng);
+        updateCoords(e.latlng.lat, e.latlng.lng);
+    });
+
+    document.getElementById('loc-autodetect').addEventListener('click', function () {
+        var btn = this;
+        if (!navigator.geolocation) {
+            alert('Tu navegador no soporta geolocalización.');
+            return;
+        }
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Obteniendo ubicación...';
+        navigator.geolocation.getCurrentPosition(function (pos) {
+            var lat = pos.coords.latitude;
+            var lng = pos.coords.longitude;
+            marker.setLatLng([lat, lng]);
+            updateCoords(lat, lng);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-location-crosshairs mr-2"></i>Usar mi ubicación actual';
+        }, function (err) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-location-crosshairs mr-2"></i>Usar mi ubicación actual';
+            alert('No se pudo obtener tu ubicación: ' + err.message);
+        }, { enableHighAccuracy: true, timeout: 10000 });
+    });
+
+    setTimeout(function () { map.invalidateSize(); }, 200);
+});
+</script>
+<style>
+.leaflet-popup-content-wrapper { background: #14181f; color: #d1d5db; border: 1px solid #232a36; border-radius: 12px; }
+.leaflet-container { background: #0c0f14; font-family: inherit; }
+</style>
 {% endblock %}
