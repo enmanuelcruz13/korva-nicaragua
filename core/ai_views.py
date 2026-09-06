@@ -188,7 +188,7 @@ def generate_ai_response(conversation, content, user_message):
         'parts': [{'text': content}]
     })
     
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent"
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent"
     payload = {
         'systemInstruction': {
             'parts': [{'text': system_instruction}]
