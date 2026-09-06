@@ -1,6 +1,14 @@
+import unicodedata
+
 from django.http import JsonResponse
 from django.shortcuts import render
 from users.models import Profile
+
+
+def _norm(s):
+    """Normaliza texto: minúsculas y sin acentos para búsqueda tolerante"""
+    s = unicodedata.normalize('NFD', str(s))
+    return ''.join(c for c in s if unicodedata.category(c) != 'Mn').lower()
 
 
 CITY_COORDS = {
@@ -43,13 +51,13 @@ def _query_profiles(city=None, sector=None, q=None):
 
 
 def _filter_by_query(businesses, q):
-    """Filtra negocios por texto (nombre, ciudad, sector)"""
+    """Filtra negocios por texto (nombre, ciudad, sector), sin distinguir tildes"""
     if not q:
         return businesses
-    ql = q.lower()
+    ql = _norm(q)
     return [b for b in businesses
-            if ql in b['name'].lower() or ql in b['city_display'].lower()
-            or ql in b['sector_display'].lower()]
+            if ql in _norm(b['name']) or ql in _norm(b['city_display'])
+            or ql in _norm(b['sector_display'])]
 
 
 def _businesses_data(profiles):
