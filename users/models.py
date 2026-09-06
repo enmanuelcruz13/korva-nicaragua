@@ -69,6 +69,8 @@ class Profile(models.Model):
     verified = models.BooleanField(default=False, help_text="✓ Sello Oficial de Verificación")
     city = models.CharField(max_length=50, choices=CITY_CHOICES)
     sector = models.CharField(max_length=50, choices=SECTOR_CHOICES)
+    latitude = models.FloatField(null=True, blank=True, help_text="Latitud para el mapa")
+    longitude = models.FloatField(null=True, blank=True, help_text="Longitud para el mapa")
     popularity_score = models.IntegerField(default=0)
     followers_count = models.IntegerField(default=0)
     associates_count = models.IntegerField(default=0)

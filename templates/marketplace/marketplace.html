@@ -15,6 +15,22 @@
         </a>
         {% endif %}
     </div>
+
+    <!-- Mapa -->
+    <a href="{% url 'business_map' %}" class="korva-card rounded-lg p-6 border border-korva-dark-alt hover:border-korva-success transition block mb-8 bg-gradient-to-r from-korva-dark-alt to-korva-dark">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-full bg-korva-success/10 flex items-center justify-center shrink-0">
+                <i class="fas fa-map-marked-alt text-korva-success text-xl"></i>
+            </div>
+            <div class="flex-1">
+                <h3 class="text-white font-bold text-lg">
+                    <i class="fas fa-map-marked-alt text-korva-success mr-2"></i> Ver Negocios en el Mapa
+                </h3>
+                <p class="text-gray-400 text-sm">Encuentra todos los negocios de Korva Nicaragua por ubicación</p>
+            </div>
+            <i class="fas fa-chevron-right text-korva-success"></i>
+        </div>
+    </a>
     
     <!-- Search and Filter -->
     <div class="korva-card rounded-lg p-6 border border-korva-dark-alt mb-8">

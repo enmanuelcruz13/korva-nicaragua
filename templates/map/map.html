@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Mapa de Negocios - Korva Nicaragua{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-8">
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl sm:text-3xl font-bold text-white mb-2">
+                <i class="fas fa-map-marked-alt text-korva-success mr-2"></i> Mapa de Negocios
+            </h1>
+            <p class="text-gray-400 text-sm">
+                Encuentra los negocios de Korva Nicaragua en tu ciudad
+            </p>
+        </div>
+        <div class="flex gap-3">
+            <a href="{% url 'marketplace' %}" class="korva-btn-primary px-4 py-2 rounded-lg text-sm">
+                <i class="fas fa-store mr-2"></i> Marketplace
+            </a>
+        </div>
+    </div>
+
+    <div class="korva-card rounded-xl border border-korva-dark-alt overflow-hidden">
+        <div id="korva-map" class="w-full" style="height: 65vh; min-height: 480px;"></div>
+    </div>
+
+    <div id="map-stats" class="mt-4 text-sm text-gray-400">
+        Cargando negocios...
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+{{ businesses_json|json_script:"businesses-data" }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var data = JSON.parse(document.getElementById('businesses-data').textContent);
+
+    var map = L.map('korva-map');
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    var icons = {
+        vip: L.divIcon({ className: 'korva-marker', html: '<div class="korva-marker-pin korva-marker-vip"><i class="fas fa-crown"></i></div>', iconSize: [34, 34], iconAnchor: [17, 34], popupAnchor: [0, -34] }),
+        oro: L.divIcon({ className: 'korva-marker', html: '<div class="korva-marker-pin korva-marker-oro"><i class="fas fa-medal"></i></div>', iconSize: [34, 34], iconAnchor: [17, 34], popupAnchor: [0, -34] }),
+        plata: L.divIcon({ className: 'korva-marker', html: '<div class="korva-marker-pin korva-marker-plata"><i class="fas fa-star"></i></div>', iconSize: [34, 34], iconAnchor: [17, 34], popupAnchor: [0, -34] }),
+        bronce: L.divIcon({ className: 'korva-marker', html: '<div class="korva-marker-pin korva-marker-bronce"><i class="fas fa-building"></i></div>', iconSize: [34, 34], iconAnchor: [17, 34], popupAnchor: [0, -34] })
+    };
+
+    var bounds = [];
+    var markers = [];
+    data.forEach(function (b) {
+        var icon = icons[b.tier] || icons.bronce;
+        var m = L.marker([b.lat, b.lng], { icon: icon }).addTo(map);
+        bounds.push([b.lat, b.lng]);
+        markers.push(m);
+
+        var logoHTML = b.logo
+            ? '<img src="' + b.logo + '" class="w-9 h-9 rounded-full object-cover">'
+            : '<div class="w-9 h-9 rounded-full bg-korva-success flex items-center justify-center text-white text-xs"><i class="fas fa-building"></i></div>';
+
+        var verifiedHTML = b.verified ? ' <span class="text-korva-success" title="Verificado"><i class="fas fa-check-circle"></i></span>' : '';
+        var tierBadge = '<span class="korva-chip text-xs">' + b.tier_display + '</span>';
+
+        m.bindPopup(
+            '<div class="min-w-[220px]">' +
+            '<div class="flex items-center gap-3 mb-2">' + logoHTML + 
+            '<div><div class="font-bold text-white text-sm leading-tight">' + b.name + verifiedHTML + '</div>' +
+            '<div class="text-gray-400 text-xs">' + b.city + ' · ' + b.sector + '</div></div></div>' +
+            '<div class="flex items-center gap-2 mb-3">' + tierBadge +
+            '<span class="text-gray-500 text-xs"><i class="fas fa-fire"></i> ' + b.popularity + ' pts</span></div>' +
+            '<a href="' + b.profile_url + '" class="korva-btn-primary px-3 py-1.5 rounded-lg text-xs inline-block w-full text-center">Ver negocio</a>' +
+            '</div>'
+        );
+    });
+
+    if (bounds.length > 0) {
+        map.fitBounds(bounds, { padding: [60, 60] });
+    } else {
+        map.setView([12.8654, -85.2072], 7); // Nicaragua
+    }
+
+    document.getElementById('map-stats').textContent =
+        markers.length + ' negocios en el mapa';
+
+    // Recalcular tamaño por si Leaflet cargó antes de layout
+    setTimeout(function () { map.invalidateSize(); }, 200);
+});
+</script>
+<style>
+.leaflet-popup-content-wrapper { background: #14181f; color: #d1d5db; border: 1px solid #232a36; border-radius: 12px; }
+.leaflet-popup-tip { background: #14181f; border: 1px solid #232a36; }
+.leaflet-popup-content { margin: 14px 16px; line-height: 1.4; }
+.leaflet-container { background: #0c0f14; font-family: inherit; }
+.korva-marker-pin { width: 34px; height: 34px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); display: flex; align-items: center; justify-content: center; border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.4); }
+.korva-marker-pin i { transform: rotate(45deg); font-size: 13px; color: #fff; }
+.korva-marker-vip { background: #8b5cf6; }
+.korva-marker-oro { background: #f59e0b; }
+.korva-marker-plata { background: #94a3b8; }
+.korva-marker-bronce { background: #b45309; }
+</style>
+{% endblock %}

@@ -45,6 +45,9 @@ from core.ai_views import (
 # PWA
 from core.pwa_views import service_worker, assetlinks
 
+# Vistas de mapa
+from core.map_views import business_map, business_map_data
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('sw.js', service_worker, name='service_worker'),
@@ -100,6 +103,8 @@ urlpatterns = [
     
     # Marketplace
     path('marketplace/', marketplace, name='marketplace'),
+    path('mapa/', business_map, name='business_map'),
+    path('mapa/data/', business_map_data, name='business_map_data'),
     path('product/create/', create_product, name='create_product'),
     path('product/<int:product_id>/', product_detail, name='product_detail'),
     path('product/<int:product_id>/edit/', edit_product, name='edit_product'),
