@@ -135,3 +135,17 @@ class Profile(models.Model):
             self.popularity_score += 1000
             super().save(*args, **kwargs)
 
+
+class ProfileFollow(models.Model):
+    """Relación de seguir/dejar de seguir entre perfiles"""
+    follower = models.ForeignKey(Profile, related_name='following_rel', on_delete=models.CASCADE)
+    following = models.ForeignKey(Profile, related_name='followers_rel', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('follower', 'following')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.follower.user.username} sigue a {self.following.user.username}"
+

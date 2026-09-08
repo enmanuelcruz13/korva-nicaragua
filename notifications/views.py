@@ -1,11 +1,32 @@
 import json
 
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_POST
 
 from .models import Notification, WebPushSubscription
+
+
+@login_required
+def notifications_page(request):
+    """Página completa de notificaciones."""
+    qs = Notification.objects.filter(recipient=request.user) \
+        .select_related('sender') \
+        .order_by('-created_at')
+    paginator = Paginator(qs, 20)
+    page = paginator.get_page(request.GET.get('page'))
+
+    unread = Notification.objects.filter(recipient=request.user, is_read=False).count()
+
+    return render(request, 'notifications/list.html', {
+        'page_obj': page,
+        'paginator': paginator,
+        'notifications': page.object_list,
+        'unread': unread,
+        'total': qs.count(),
+    })
 
 
 @login_required

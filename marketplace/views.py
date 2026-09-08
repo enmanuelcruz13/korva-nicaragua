@@ -2,6 +2,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Q
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
 from .models import Product
 from .forms import ProductForm
 
@@ -141,4 +143,34 @@ def my_products(request):
     except Exception as e:
         messages.error(request, f'Error: {str(e)}')
         return redirect('marketplace')
+
+
+def product_contact(request, product_id):
+    """Registra la consulta de un producto y redirige a WhatsApp (o a la conversación)"""
+    product = get_object_or_404(Product, pk=product_id)
+
+    if not product.is_active:
+        return redirect('marketplace')
+
+    # Registrar consulta y notificar al vendedor (solo usuarios autenticados)
+    if request.user.is_authenticated and request.user.profile != product.user:
+        try:
+            from notifications.services import notify
+            notify(
+                user=product.user.user,
+                notification_type='product_inquiry',
+                title=f'{request.user.profile.business_name} está interesado en tu producto',
+                message=product.name[:150],
+                url=f'/product/{product.pk}/',
+                sender=request.user,
+                related_object_id=product.pk,
+                related_object_type='product',
+            )
+        except Exception:
+            pass
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'ok': True})
+
+    return redirect(product.whatsapp_message_url)
 

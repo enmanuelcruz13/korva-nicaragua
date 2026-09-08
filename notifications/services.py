@@ -1,13 +1,56 @@
 from pywebpush import webpush, WebPushException
 from django.conf import settings
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
 import json
 import logging
 
 logger = logging.getLogger(__name__)
 
 
+def send_notification_email(notification):
+    """Envía un email con la notificación si el usuario tiene email activado para ese tipo."""
+    user = notification.recipient
+    if not user.email:
+        return False
+
+    from .models import NotificationPreference
+    try:
+        pref = NotificationPreference.objects.get(user=user)
+        field = f"email_{notification.notification_type}"
+        if not getattr(pref, field, True):
+            return False
+    except NotificationPreference.DoesNotExist:
+        pass
+
+    subject = f'{notification.title} - Korva Nicaragua'
+    base = settings.FRONTEND_URL.rstrip('/')
+    url = notification.url
+    if url.startswith('/'):
+        url = f'{base}{url}'
+    html_message = render_to_string('notifications/email_notification.html', {
+        'notification': notification,
+        'user': user,
+        'url': url,
+        'app_name': 'Korva Nicaragua',
+    })
+    try:
+        send_mail(
+            subject,
+            notification.message,
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+            html_message=html_message,
+            fail_silently=True,
+        )
+        return True
+    except Exception as e:
+        logger.warning('Error enviando email de notificación: %s', e)
+        return False
+
+
 def notify(user, notification_type, title, message, url='#', sender=None, related_object_id=None, related_object_type=''):
-    """Crea una notificación (BD), la difunde por WebSocket y dispara push. Devuelve la instancia."""
+    """Crea una notificación (BD), la difunde por WebSocket, dispara push y email. Devuelve la instancia."""
     from .models import Notification
     from channels.layers import get_channel_layer
     from asgiref.sync import async_to_sync
@@ -49,6 +92,12 @@ def notify(user, notification_type, title, message, url='#', sender=None, relate
         send_push_to_user(user, title, message, url=url)
     except Exception as e:
         logger.warning('Error push de notificación: %s', e)
+
+    # Email (si el usuario lo tiene activado para ese tipo)
+    try:
+        send_notification_email(notification)
+    except Exception as e:
+        logger.warning('Error email de notificación: %s', e)
 
     return notification
 

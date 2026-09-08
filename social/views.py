@@ -6,7 +6,7 @@ from django.views.decorators.http import require_POST
 from django.db.models import Q
 from .models import Post, Comment, PostImage, Vote
 from .forms import PostForm, CommentForm, PostImageForm
-from users.models import Profile
+from users.models import Profile, ProfileFollow
 from marketplace.models import Product
 
 def home(request):
@@ -78,6 +78,27 @@ def home(request):
                 'last_sender_name': last_msg.sender.business_name if last_msg else '',
             })
 
+        # Recomendaciones: negocios del mismo sector y ciudad, para seguir
+        recommended = []
+        following_ids = list(
+            ProfileFollow.objects.filter(follower=user_profile).values_list('following_id', flat=True)
+        )
+        base_qs = Profile.objects.exclude(pk=user_profile.pk)
+        if following_ids:
+            base_qs = base_qs.exclude(pk__in=following_ids)
+
+        sector_qs = base_qs.filter(sector=user_profile.sector).order_by('-popularity_score')[:3]
+        recommended.extend(sector_qs)
+        chosen_ids = [p.pk for p in recommended]
+
+        city_qs = base_qs.exclude(pk__in=chosen_ids).filter(city=user_profile.city).order_by('-popularity_score')[:3]
+        recommended.extend(city_qs)
+        chosen_ids = [p.pk for p in recommended]
+
+        if len(recommended) < 6:
+            extras = base_qs.exclude(pk__in=chosen_ids).order_by('-popularity_score')[: 6 - len(recommended)]
+            recommended.extend(extras)
+
         context = {
             'posts': posts,
             'search_query': search_query,
@@ -85,6 +106,7 @@ def home(request):
             'alliance_posts': alliance_posts,
             'stats': stats,
             'conversations': conversations,
+            'recommended': recommended,
         }
         
         return render(request, 'social/home.html', context)

@@ -106,6 +106,19 @@
                         <a href="{% url 'product_detail' product.id %}" class="korva-btn-primary px-4 py-2 rounded-lg font-semibold text-sm">
                             Ver
                         </a>
+                        {% if user.is_authenticated and user.profile != product.user %}
+                        <form method="post" action="{% url 'product_contact' product.id %}" class="inline">
+                            {% csrf_token %}
+                            <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition">
+                                <i class="fab fa-whatsapp mr-1"></i> Contactar
+                            </button>
+                        </form>
+                        {% elif not user.is_authenticated %}
+                        <a href="{{ product.whatsapp_message_url }}" target="_blank" rel="noopener"
+                           class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition">
+                            <i class="fab fa-whatsapp mr-1"></i> Contactar
+                        </a>
+                        {% endif %}
                     </div>
                 </div>
             </div>

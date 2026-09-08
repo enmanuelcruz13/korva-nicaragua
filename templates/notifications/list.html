@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Mis Notificaciones - Korva Nicaragua{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8">
+    <!-- Encabezado -->
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl sm:text-3xl font-bold text-white mb-1">
+                <i class="fas fa-bell text-korva-success mr-2"></i> Notificaciones
+            </h1>
+            <p class="text-gray-400 text-sm">
+                {{ unread }} sin leer · {{ total }} en total
+            </p>
+        </div>
+        {% if unread %}
+        <form method="post" action="{% url 'notifications_mark_all_read' %}" class="inline">
+            {% csrf_token %}
+            <button type="submit" class="korva-btn-primary px-4 py-2 rounded-lg text-sm font-semibold">
+                <i class="fas fa-check-double mr-2"></i> Marcar todas
+            </button>
+        </form>
+        {% endif %}
+    </div>
+
+    <!-- Lista -->
+    {% if notifications %}
+    <div class="space-y-3">
+        {% for n in notifications %}
+        <a href="{{ n.url }}" data-id="{{ n.id }}"
+           class="notif-row korva-card border border-korva-dark-alt rounded-xl p-4 flex items-start gap-4 hover:border-korva-success transition block {% if not n.is_read %}bg-korva-dark-alt{% endif %}">
+            <!-- Icono -->
+            <div class="w-10 h-10 rounded-full bg-korva-dark-alt flex items-center justify-center text-korva-success shrink-0 {% if n.is_read %}opacity-60{% endif %}">
+                <i class="{{ n.icon }}"></i>
+            </div>
+
+            <!-- Contenido -->
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between gap-2">
+                    <p class="font-semibold text-gray-200 truncate">{{ n.title }}</p>
+                    {% if not n.is_read %}
+                    <span class="w-2 h-2 rounded-full bg-korva-success shrink-0"></span>
+                    {% endif %}
+                </div>
+                <p class="text-sm text-gray-500 mt-0.5 line-clamp-2">{{ n.message }}</p>
+                <div class="flex items-center gap-3 mt-2 text-xs text-gray-600">
+                    <span><i class="fas fa-user mr-1"></i>{{ n.sender.profile.business_name|default:n.sender.username|default:'Sistema' }}</span>
+                    <span><i class="fas fa-tag mr-1"></i>{{ n.get_notification_type_display }}</span>
+                    <span><i class="fas fa-clock mr-1"></i>{{ n.created_at|date:"d M Y H:i" }}</span>
+                </div>
+            </div>
+
+            <i class="fas fa-chevron-right text-gray-600 mt-3 shrink-0"></i>
+        </a>
+        {% endfor %}
+    </div>
+
+    <!-- Paginación -->
+    {% if paginator.num_pages > 1 %}
+    <div class="flex items-center justify-center gap-4 mt-8">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}" class="korva-btn-primary px-4 py-2 rounded-lg text-sm">
+            <i class="fas fa-chevron-left mr-1"></i> Anterior
+        </a>
+        {% endif %}
+        <span class="text-gray-500 text-sm">Página {{ page_obj.number }} de {{ paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}" class="korva-btn-primary px-4 py-2 rounded-lg text-sm">
+            Siguiente <i class="fas fa-chevron-right ml-1"></i>
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="text-center py-16 korva-card rounded-xl border border-korva-dark-alt">
+        <i class="fas fa-bell-slash text-5xl text-gray-600 mb-4"></i>
+        <h3 class="text-xl font-semibold text-gray-400 mb-2">No tienes notificaciones</h3>
+        <p class="text-gray-500">Cuando alguien interactúe contigo, aparecerá aquí.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.notif-row').forEach(function(el) {
+        el.addEventListener('click', function() {
+            const id = el.getAttribute('data-id');
+            if (id) {
+                const m = document.cookie.match(/csrftoken=([^;]+)/);
+                fetch('/notifications/' + id + '/read/', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': m ? m[1] : '' }
+                }).catch(function() {});
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

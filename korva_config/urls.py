@@ -11,7 +11,10 @@ from django.conf import settings
 from django.conf.urls.static import static
 
 # Vistas de usuarios
-from users.views import register, login_view, logout_view, profile_view, edit_profile, dashboard, verify_email, setup_admin
+from users.views import (
+    register, login_view, logout_view, profile_view, edit_profile, dashboard,
+    verify_email, setup_admin, toggle_follow
+)
 
 # Vistas de muro social
 from social.views import (
@@ -22,7 +25,7 @@ from social.views import (
 # Vistas de marketplace
 from marketplace.views import (
     marketplace, create_product, product_detail, edit_product,
-    delete_product, my_products
+    delete_product, my_products, product_contact
 )
 
 # Vistas de rankings
@@ -50,8 +53,8 @@ from core.map_views import business_map, business_map_data
 
 # Notificaciones
 from notifications.views import (
-    notifications_list, notifications_mark_read, notifications_mark_all_read,
-    push_subscribe, push_unsubscribe, push_test
+    notifications_list, notifications_page, notifications_mark_read,
+    notifications_mark_all_read, push_subscribe, push_unsubscribe, push_test
 )
 
 urlpatterns = [
@@ -66,6 +69,7 @@ urlpatterns = [
     path('verify-email/<uuid:token>/', verify_email, name='verify_email'),
     path('dashboard/', dashboard, name='dashboard'),
     path('profile/<str:username>/', profile_view, name='profile'),
+    path('profile/<str:username>/follow/', toggle_follow, name='toggle_follow'),
     path('edit-profile/', edit_profile, name='edit_profile'),
     path('setup-admin/', setup_admin, name='setup_admin'),
 
@@ -115,6 +119,7 @@ urlpatterns = [
     path('product/<int:product_id>/', product_detail, name='product_detail'),
     path('product/<int:product_id>/edit/', edit_product, name='edit_product'),
     path('product/<int:product_id>/delete/', delete_product, name='delete_product'),
+    path('product/<int:product_id>/contactar/', product_contact, name='product_contact'),
     path('my-products/', my_products, name='my_products'),
     
     # Rankings
@@ -144,7 +149,8 @@ urlpatterns = [
     path('api/', include('api.urls')),
 
     # Notificaciones
-    path('notifications/', notifications_list, name='notifications_list'),
+    path('notifications/', notifications_page, name='notifications_page'),
+    path('notifications/json/', notifications_list, name='notifications_list'),
     path('notifications/json/', notifications_list, name='notifications_json'),
     path('notifications/<int:notification_id>/read/', notifications_mark_read, name='notifications_mark_read'),
     path('notifications/read-all/', notifications_mark_all_read, name='notifications_mark_all_read'),

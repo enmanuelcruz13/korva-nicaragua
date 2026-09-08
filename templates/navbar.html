@@ -58,6 +58,9 @@
                         <div id="notif-empty" class="hidden px-4 py-6 text-center text-gray-500 text-sm">
                             <i class="fas fa-inbox text-2xl block mb-2"></i>No tienes notificaciones
                         </div>
+                        <a href="{% url 'notifications_page' %}" class="block text-center text-xs text-korva-success hover:underline py-2.5 border-t border-korva-dark-alt">
+                            <i class="fas fa-list mr-1"></i> Ver todas las notificaciones
+                        </a>
                     </div>
                 </div>
                 {% endif %}

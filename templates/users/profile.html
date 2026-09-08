@@ -39,6 +39,16 @@
                         <i class="fas fa-edit mr-2"></i> Editar Perfil
                     </a>
                     {% elif user.is_authenticated %}
+                    <form method="post" action="{% url 'toggle_follow' profile.user.username %}" id="follow-form" class="inline">
+                        {% csrf_token %}
+                        <button type="submit" id="follow-btn" class="px-4 py-2 rounded-lg text-sm font-semibold transition border {% if is_following %}bg-korva-dark-alt text-gray-300 border-korva-dark-alt hover:text-white{% else %}bg-korva-success text-white border-korva-success hover:bg-green-600{% endif %}">
+                            {% if is_following %}
+                            <i class="fas fa-user-check mr-2"></i> Siguiendo
+                            {% else %}
+                            <i class="fas fa-user-plus mr-2"></i> Seguir
+                            {% endif %}
+                        </button>
+                    </form>
                     <a href="{% url 'start_conversation' profile.user.username %}" class="korva-btn-primary px-4 py-2 rounded-lg text-sm font-semibold">
                         <i class="fas fa-envelope mr-2"></i> Mensaje
                     </a>
@@ -80,7 +90,7 @@
                     <p class="text-xs text-gray-500">Puntos</p>
                 </div>
                 <div class="text-center p-4 bg-korva-dark-alt rounded-lg border border-korva-dark-alt">
-                    <p class="text-2xl font-bold text-white">{{ profile.followers_count }}</p>
+                    <p class="text-2xl font-bold text-white" id="followers-count">{{ profile.followers_count }}</p>
                     <p class="text-xs text-gray-500">Seguidores</p>
                 </div>
                 <div class="text-center p-4 bg-korva-dark-alt rounded-lg border border-korva-dark-alt">
@@ -197,5 +207,37 @@ function showTab(name) {
     event.target.closest('.tab-btn').classList.add('border-b-2', 'border-korva-success', 'text-white');
     event.target.closest('.tab-btn').classList.remove('text-gray-500');
 }
+
+// Seguir / dejar de seguir (AJAX, con fallback a POST normal)
+(function() {
+    const form = document.getElementById('follow-form');
+    if (!form) return;
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('follow-btn');
+        const url = form.getAttribute('action');
+        const csrf = document.cookie.match(/csrftoken=([^;]+)/);
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrf ? csrf[1] : '',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        }).then(r => r.json()).then(d => {
+            if (d.error) return;
+            const countEl = document.getElementById('followers-count');
+            if (countEl) countEl.textContent = d.followers;
+            if (d.following) {
+                btn.classList.remove('bg-korva-success', 'text-white', 'border-korva-success');
+                btn.classList.add('bg-korva-dark-alt', 'text-gray-300', 'border-korva-dark-alt');
+                btn.innerHTML = '<i class="fas fa-user-check mr-2"></i> Siguiendo';
+            } else {
+                btn.classList.add('bg-korva-success', 'text-white', 'border-korva-success');
+                btn.classList.remove('bg-korva-dark-alt', 'text-gray-300', 'border-korva-dark-alt');
+                btn.innerHTML = '<i class="fas fa-user-plus mr-2"></i> Seguir';
+            }
+        }).catch(function() { form.submit(); });
+    });
+})();
 </script>
 {% endblock %}

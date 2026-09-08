@@ -3,13 +3,14 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
+from django.views.decorators.http import require_POST
 from django.core.mail import send_mail
 from django.conf import settings
 from django.template.loader import render_to_string
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
-from .models import Profile, EmailVerificationToken
+from .models import Profile, EmailVerificationToken, ProfileFollow
 from django.core.management import call_command
 from .forms import UserRegistrationForm, ProfileUpdateForm
 from social.models import Post, Comment
@@ -151,18 +152,78 @@ def profile_view(request, username):
         # Obtener posts y productos del usuario
         posts = profile.posts.all()[:10]
         products = profile.products.all()[:10]
-        
+
+        # Estado de seguimiento
+        is_following = False
+        if request.user.is_authenticated and request.user.profile != profile:
+            is_following = ProfileFollow.objects.filter(
+                follower=request.user.profile, following=profile
+            ).exists()
+
         context = {
             'profile': profile,
             'user_obj': user,
             'posts': posts,
             'products': products,
+            'is_following': is_following,
         }
         
         return render(request, 'users/profile.html', context)
     except Exception as e:
         messages.error(request, f'Error al cargar el perfil: {str(e)}')
         return redirect('home')
+
+
+@login_required(login_url='login')
+@require_POST
+def toggle_follow(request, username):
+    """Seguir o dejar de seguir a un usuario"""
+    try:
+        user = get_object_or_404(User, username=username)
+        target = user.profile
+        follower = request.user.profile
+
+        if target == follower:
+            messages.error(request, 'No puedes seguirte a ti mismo.')
+            return redirect('profile', username=username)
+
+        follow = ProfileFollow.objects.filter(follower=follower, following=target).first()
+        if follow:
+            follow.delete()
+            target.followers_count = max(0, target.followers_count - 1)
+            target.save(update_fields=['followers_count'])
+            following = False
+        else:
+            ProfileFollow.objects.create(follower=follower, following=target)
+            target.followers_count += 1
+            target.save(update_fields=['followers_count'])
+            following = True
+
+            # Notificación + push de nuevo seguidor
+            try:
+                from notifications.services import notify
+                notify(
+                    user=target.user,
+                    notification_type='follow',
+                    title=f'{request.user.profile.business_name} empezó a seguirte',
+                    message='Nuevo seguidor en Korva Nicaragua',
+                    url=f'/profile/{request.user.username}/',
+                    sender=request.user,
+                    related_object_id=target.pk,
+                    related_object_type='profile',
+                )
+            except Exception:
+                pass
+
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'ok': True, 'following': following, 'followers': target.followers_count})
+
+        return redirect('profile', username=username)
+    except Exception as e:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'error': str(e)}, status=400)
+        messages.error(request, f'Error: {str(e)}')
+        return redirect('profile', username=username)
 
 
 @login_required(login_url='login')
