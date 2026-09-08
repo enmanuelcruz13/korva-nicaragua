@@ -48,6 +48,12 @@ from core.pwa_views import service_worker, assetlinks
 # Vistas de mapa
 from core.map_views import business_map, business_map_data
 
+# Notificaciones
+from notifications.views import (
+    notifications_list, notifications_mark_read, notifications_mark_all_read,
+    push_subscribe, push_unsubscribe, push_test
+)
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('sw.js', service_worker, name='service_worker'),
@@ -136,6 +142,15 @@ urlpatterns = [
 
     # API
     path('api/', include('api.urls')),
+
+    # Notificaciones
+    path('notifications/', notifications_list, name='notifications_list'),
+    path('notifications/json/', notifications_list, name='notifications_json'),
+    path('notifications/<int:notification_id>/read/', notifications_mark_read, name='notifications_mark_read'),
+    path('notifications/read-all/', notifications_mark_all_read, name='notifications_mark_all_read'),
+    path('notifications/push/subscribe/', push_subscribe, name='push_subscribe'),
+    path('notifications/push/unsubscribe/', push_unsubscribe, name='push_unsubscribe'),
+    path('notifications/push/test/', push_test, name='push_test'),
 ]
 
 # Servir archivos de media en desarrollo

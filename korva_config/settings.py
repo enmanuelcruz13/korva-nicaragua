@@ -96,6 +96,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'korva_config.context_processors.korva_push',
             ],
         },
     },
@@ -185,6 +186,10 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Google Gemini API Configuration
 GEMINI_API_KEY = config('GEMINI_API_KEY', default='')
+
+# Web Push (VAPID) - Notificaciones push del navegador
+VAPID_PUBLIC_KEY = config('VAPID_PUBLIC_KEY', default='')
+VAPID_PRIVATE_KEY = config('VAPID_PRIVATE_KEY', default='')
 
 # Django REST Framework
 REST_FRAMEWORK = {

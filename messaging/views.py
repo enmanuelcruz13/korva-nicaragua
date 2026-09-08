@@ -227,6 +227,22 @@ def send_message(request):
                     user1=user_profile,
                     user2=recipient
                 )
+
+            # Notificación en tiempo real + push (estilo Facebook)
+            try:
+                from notifications.services import notify
+                notify(
+                    user=recipient.user,
+                    notification_type='message',
+                    title=f'Nuevo mensaje de {user_profile.user.username}',
+                    message=content[:150] if content else ('📎 Imagen' if message.image else '🎥 Video'),
+                    url='/messages/',
+                    sender=request.user,
+                    related_object_id=message.pk,
+                    related_object_type='message',
+                )
+            except Exception:
+                pass
             
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 from django.utils import timezone

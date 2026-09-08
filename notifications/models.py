@@ -31,6 +31,7 @@ class Notification(models.Model):
     notification_type = models.CharField(max_length=20, choices=TYPE_CHOICES)
     title = models.CharField(max_length=200)
     message = models.TextField()
+    url = models.CharField(max_length=500, blank=True, default='#')
     related_object_id = models.PositiveIntegerField(null=True, blank=True)
     related_object_type = models.CharField(max_length=50, blank=True)
     is_read = models.BooleanField(default=False)
@@ -82,3 +83,34 @@ class NotificationPreference(models.Model):
     
     def __str__(self):
         return f"Preferencias de {self.user.username}"
+
+
+class WebPushSubscription(models.Model):
+    """Suscripción Web Push (navegador) de un usuario"""
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='webpush_subscriptions'
+    )
+    endpoint = models.TextField(unique=True)
+    p256dh = models.TextField(help_text="Clave pública cliente (base64url)")
+    auth = models.TextField(help_text="Secreto de autenticación (base64url)")
+    user_agent = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return f"Push de {self.user.username}: {self.endpoint[:50]}"
+
+    def subscription_info(self):
+        return {
+            'endpoint': self.endpoint,
+            'keys': {
+                'p256dh': self.p256dh,
+                'auth': self.auth,
+            },
+        }

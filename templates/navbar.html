@@ -39,6 +39,29 @@
             
             <!-- User Menu / Auth + Theme Toggle -->
             <div class="flex items-center space-x-4">
+                {% if user.is_authenticated %}
+                <!-- Notifications Bell -->
+                <div class="relative" id="notif-menu">
+                    <button type="button" id="notif-btn" class="relative p-2 rounded-lg text-gray-300 hover:text-korva-success hover:bg-korva-dark-alt transition" aria-label="Notificaciones" title="Notificaciones">
+                        <i id="notif-icon" class="fas fa-bell text-xl"></i>
+                        <span id="notif-badge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 border border-bg-korva-dark">0</span>
+                    </button>
+                    <!-- Dropdown Panel -->
+                    <div id="notif-dd" class="hidden absolute right-0 mt-2 w-80 sm:w-96 bg-korva-card border border-korva-dark-alt rounded-lg shadow-xl z-50 overflow-hidden">
+                        <div class="flex items-center justify-between px-4 py-3 border-b border-korva-dark-alt">
+                            <span class="font-semibold text-gray-200"><i class="fas fa-bell mr-2"></i>Notificaciones</span>
+                            <button type="button" id="notif-read-all" class="text-xs text-korva-success hover:underline">Marcar todas como leídas</button>
+                        </div>
+                        <div id="notif-list" class="max-h-96 overflow-y-auto">
+                            <div class="px-4 py-6 text-center text-gray-500 text-sm"><i class="fas fa-spinner fa-spin mr-2"></i>Cargando…</div>
+                        </div>
+                        <div id="notif-empty" class="hidden px-4 py-6 text-center text-gray-500 text-sm">
+                            <i class="fas fa-inbox text-2xl block mb-2"></i>No tienes notificaciones
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
                 <!-- Theme Toggle -->
                 <button id="theme-toggle" class="p-2 rounded-lg text-gray-300 hover:text-korva-success hover:bg-korva-dark-alt transition" aria-label="Cambiar tema" title="Cambiar tema">
                     <i id="theme-icon" class="fas fa-sun text-xl"></i>

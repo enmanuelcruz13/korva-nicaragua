@@ -163,6 +163,24 @@ def post_detail(request, post_id):
                 comment.author = request.user.profile
                 comment.save()
                 messages.success(request, 'Comentario publicado.')
+
+                # Notificación al autor del post
+                if post.author.user != request.user:
+                    try:
+                        from notifications.services import notify
+                        notify(
+                            user=post.author.user,
+                            notification_type='comment',
+                            title=f'{request.user.username} comentó en tu publicación',
+                            message=comment.content[:150],
+                            url=f'/comunidad/post/{post.pk}/',
+                            sender=request.user,
+                            related_object_id=comment.pk,
+                            related_object_type='comment',
+                        )
+                    except Exception:
+                        pass
+
                 return redirect('post_detail', post_id=post.pk)
         else:
             form = CommentForm()
@@ -214,6 +232,23 @@ def upvote_post(request, post_id):
         
         post.author.save()
         post.save()
+
+        # Notificación de nuevo me gusta (solo cuando se agrega el voto)
+        if vote_action in ('upvoted', 'changed_to_up') and post.author.user != request.user:
+            try:
+                from notifications.services import notify
+                notify(
+                    user=post.author.user,
+                    notification_type='like',
+                    title=f'{request.user.username} reaccionó a tu publicación',
+                    message=post.content[:150] if post.content else 'Te ha dado un me gusta',
+                    url=f'/comunidad/post/{post.pk}/',
+                    sender=request.user,
+                    related_object_id=post.pk,
+                    related_object_type='post',
+                )
+            except Exception:
+                pass
         
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({

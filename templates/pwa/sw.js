@@ -83,3 +83,42 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+
+/* ===== Notificaciones Push ===== */
+self.addEventListener('push', (event) => {
+  let data;
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (e) {
+    data = { title: 'Korva Nicaragua', body: event.data ? event.data.text() : '', url: '/' };
+  }
+
+  const title = data.title || 'Korva Nicaragua';
+  const options = {
+    body: data.body || '',
+    icon: data.icon || '/static/pwa/icon-192.png',
+    badge: data.badge || '/static/pwa/icon-192.png',
+    data: { url: data.url || '/notifications/' },
+    vibrate: [200, 100, 200],
+    tag: data.tag || 'korva-notification',
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = (event.notification.data && event.notification.data.url) || '/notifications/';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      for (const client of windowClients) {
+        if ('focus' in client) {
+          client.navigate(targetUrl);
+          return client.focus();
+        }
+      }
+      return clients.openWindow(targetUrl);
+    })
+  );
+});

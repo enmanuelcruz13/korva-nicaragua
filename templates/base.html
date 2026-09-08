@@ -41,6 +41,10 @@
 </head>
 <body class="bg-korva-dark text-gray-200">
     
+    <script>
+        window.KORVA_VAPID_PUBLIC_KEY = "{{ korva_vapid_public_key|default:'' }}";
+    </script>
+    
     {% include 'navbar.html' %}
     
     <main class="min-h-screen">
