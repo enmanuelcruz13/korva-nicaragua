@@ -4,20 +4,79 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
+<link rel="stylesheet" href="{% static 'vendor/markercluster/MarkerCluster.css' %}">
+<style>
+/* ---- Tema oscuro para popups y controles ---- */
+.leaflet-popup-content-wrapper { background: #14181f; color: #d1d5db; border: 1px solid #232a36; border-radius: 12px; }
+.leaflet-popup-tip { background: #14181f; border: 1px solid #232a36; }
+.leaflet-popup-content { margin: 14px 16px; line-height: 1.4; }
+.leaflet-container { background: #0c0f14; font-family: inherit; }
+.leaflet-control-zoom a { background: #14181f !important; color: #e5e7eb !important; border-color: #232a36 !important; }
+.leaflet-control-zoom a:hover { background: #1e2836 !important; color: #22c55e !important; }
+.leaflet-control-attribution { background: rgba(12,15,20,.7) !important; color: #64748b !important; }
+.leaflet-control-attribution a { color: #94a3b8 !important; }
+.leaflet-bar { border-color: #232a36 !important; box-shadow: 0 2px 8px rgba(0,0,0,.45); }
+
+/* ---- Marcadores por tier ---- */
+.korva-marker-pin { width: 32px; height: 32px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); display: flex; align-items: center; justify-content: center; border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.4); }
+.korva-marker-pin i { transform: rotate(45deg); font-size: 13px; color: #fff; }
+.korva-marker-vip { background: #8b5cf6; }
+.korva-marker-oro { background: #f59e0b; }
+.korva-marker-plata { background: #64748b; }
+.korva-marker-bronce { background: #b45309; }
+
+/* ---- Clusters (tema Korva) ---- */
+.korva-cluster { background: transparent; border: none; }
+.korva-cluster div {
+    width: 44px; height: 44px; margin: 0;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 25%, rgba(34,197,94,.95), rgba(21,128,61,.95));
+    color: #052e16; font-weight: 800; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 0 3px rgba(34,197,94,.25), 0 4px 12px rgba(0,0,0,.45);
+    transition: transform .15s ease;
+}
+.korva-cluster.korva-cluster-medium div { background: radial-gradient(circle at 30% 25%, rgba(251,191,36,.95), rgba(217,119,6,.95)); color: #451a03; }
+.korva-cluster.korva-cluster-large div { background: radial-gradient(circle at 30% 25%, rgba(139,92,246,.95), rgba(109,40,217,.95)); color: #f5f3ff; }
+.korva-cluster:hover div { transform: scale(1.12); }
+
+/* ---- Botón de ubicación ---- */
+.korva-locate-btn a {
+    background: #14181f; color: #22c55e; width: 30px; height: 30px;
+    line-height: 30px; text-align: center; display: block;
+}
+.korva-locate-btn a:hover { background: #1e2836; }
+
+/* ---- Marcador "Estás aquí" ---- */
+.korva-user-dot { width: 16px; height: 16px; border-radius: 50%; background: #3b82f6; border: 3px solid #fff; position: relative; }
+.korva-user-dot::after { content: ''; position: absolute; inset: -12px; border-radius: 50%; border: 2px solid rgba(59,130,246,.55); animation: korva-pulse 1.6s ease-out infinite; }
+@keyframes korva-pulse { 0% { transform: scale(.4); opacity: 1; } 100% { transform: scale(1.15); opacity: 0; } }
+
+/* ---- Panel lateral ---- */
+#map-panel-list { max-height: 480px; }
+@media (min-width: 1024px) { #map-panel-list { max-height: calc(68vh - 64px); } }
+.map-card { transition: border-color .15s, background .15s, transform .15s; }
+.map-card:hover { transform: translateY(-1px); }
+.map-card-active { border-color: #22c55e !important; background: rgba(34,197,94,.07) !important; box-shadow: 0 0 0 1px rgba(34,197,94,.3); }
+.map-card img { background: #0f172a; }
+</style>
 {% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 py-8">
+<div class="max-w-[1400px] mx-auto px-4 py-8">
     <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
             <h1 class="text-2xl sm:text-3xl font-bold text-white mb-2">
                 <i class="fas fa-map-marked-alt text-korva-success mr-2"></i> Mapa de Negocios
             </h1>
             <p class="text-gray-400 text-sm">
-                Encuentra los negocios de Korva Nicaragua en tu ciudad
+                Encuentra los negocios de Korva Nicaragua por ciudad, sector o nombre
             </p>
         </div>
         <div class="flex gap-3">
+            <button type="button" id="map-share-btn" class="px-4 py-2 bg-korva-dark-alt rounded-lg text-sm font-semibold text-white hover:bg-korva-dark transition border border-korva-dark-alt">
+                <i class="fas fa-share-alt mr-2"></i> Compartir vista
+            </button>
             <a href="{% url 'marketplace' %}" class="korva-btn-primary px-4 py-2 rounded-lg text-sm">
                 <i class="fas fa-store mr-2"></i> Marketplace
             </a>
@@ -60,114 +119,329 @@
                           {% if not city and not sector and not q %}pointer-events-none opacity-40{% endif %}">
                     Limpiar
                 </a>
+                <button type="button" id="map-locate-btn"
+                        class="px-5 py-2 bg-korva-dark-alt text-green-400 rounded-lg text-sm font-semibold border border-korva-dark-alt hover:bg-korva-dark transition">
+                    <i class="fas fa-location-crosshairs mr-2"></i> Mi ubicación
+                </button>
             </div>
         </form>
     </div>
 
-    <div class="korva-card rounded-xl border border-korva-dark-alt overflow-hidden">
-        <div id="korva-map" class="w-full" style="height: 62vh; min-height: 460px;"></div>
+    <!-- Mapa + Panel lateral -->
+    <div class="grid grid-cols-1 lg:grid-cols-11 gap-4">
+        <div class="lg:col-span-7 korva-card rounded-xl border border-korva-dark-alt overflow-hidden">
+            <div id="korva-map" class="w-full" style="height: 68vh; min-height: 480px;"></div>
+        </div>
+
+        <div class="lg:col-span-4 korva-card rounded-xl border border-korva-dark-alt flex flex-col overflow-hidden">
+            <div class="p-4 border-b border-korva-dark-alt flex flex-wrap items-center justify-between gap-2">
+                <h2 class="font-bold text-white text-sm">
+                    <i class="fas fa-store text-korva-success mr-2"></i><span id="panel-title">Negocios</span>
+                </h2>
+                <div id="active-filters" class="flex flex-wrap gap-1.5"></div>
+            </div>
+            <div id="map-panel-list" class="overflow-y-auto p-2 space-y-2">
+                <p class="text-gray-500 text-sm px-2 py-8 text-center">
+                    <i class="fas fa-spinner fa-spin mr-2"></i>Cargando negocios...
+                </p>
+            </div>
+        </div>
     </div>
 
-    <div id="map-stats" class="mt-4 text-sm text-gray-400">
-        Cargando negocios...
+    <div id="map-stats" class="mt-4 text-sm text-gray-400 flex flex-wrap items-center gap-3">
+        <span class="text-gray-400">Cargando negocios...</span>
     </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+<script src="{% static 'vendor/markercluster/leaflet.markercluster.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    var map = L.map('korva-map');
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    /* ---------- Utilidades ---------- */
+    function esc(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function currentParams() {
+        var p = new URLSearchParams();
+        var city = document.getElementById('f-city').value;
+        var sector = document.getElementById('f-sector').value;
+        var q = document.getElementById('f-q').value.trim();
+        if (city) p.set('city', city);
+        if (sector) p.set('sector', sector);
+        if (q) p.set('q', q);
+        return p;
+    }
+
+    var map = L.map('korva-map', { zoomControl: false });
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
         maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors'
+        subdomains: 'abcd',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
     }).addTo(map);
 
+    L.control.scale({ imperial: false, position: 'bottomleft' }).addTo(map);
+
+    /* ---------- Botón "Mi ubicación" (control del mapa) ---------- */
+    var userMarker = null;
+    function userIcon() {
+        return L.divIcon({ className: '', html: '<div class="korva-user-dot"></div>', iconSize: [16, 16], iconAnchor: [8, 8] });
+    }
+    function locateMe() {
+        if (!navigator.geolocation) {
+            setStatus('Tu navegador no soporta geolocalización.', true);
+            return;
+        }
+        setStatus('<i class="fas fa-satellite-dish mr-2"></i>Obteniendo tu ubicación...');
+        navigator.geolocation.getCurrentPosition(function (pos) {
+            var lat = pos.coords.latitude, lng = pos.coords.longitude;
+            if (userMarker) map.removeLayer(userMarker);
+            userMarker = L.marker([lat, lng], { icon: userIcon(), zIndexOffset: 10000 })
+                .addTo(map).bindPopup('<b style="color:#22c55e">Estás aquí</b>');
+            map.setView([lat, lng], Math.max(map.getZoom(), 13));
+            userMarker.openPopup();
+            setStatus('<i class="fas fa-location-crosshairs mr-2 text-korva-success"></i>' +
+                'Ubicación encontrada. Los negocios más cercanos están en tu área.');
+        }, function () {
+            setStatus('<i class="fas fa-exclamation-triangle mr-2"></i>No se pudo obtener tu ubicación.', true);
+        }, { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 });
+    }
+    var locateControl = L.control({ position: 'topleft' });
+    locateControl.onAdd = function () {
+        var div = L.DomUtil.create('div', 'leaflet-bar leaflet-control korva-locate-btn');
+        div.innerHTML = '<a role="button" title="Mostrar mi ubicación" href="javascript:void(0)"><i class="fas fa-location-crosshairs"></i></a>';
+        L.DomEvent.disableClickPropagation(div);
+        L.DomEvent.on(div, 'click', locateMe);
+        return div;
+    };
+    locateControl.addTo(map);
+    document.getElementById('map-locate-btn').addEventListener('click', locateMe);
+
+    /* ---------- Marcadores por tier + clusters ---------- */
     var icons = {
-        vip: L.divIcon({ className: 'korva-marker', html: '<div class="korva-marker-pin korva-marker-vip"><i class="fas fa-crown"></i></div>', iconSize: [34, 34], iconAnchor: [17, 34], popupAnchor: [0, -34] }),
-        oro: L.divIcon({ className: 'korva-marker', html: '<div class="korva-marker-pin korva-marker-oro"><i class="fas fa-medal"></i></div>', iconSize: [34, 34], iconAnchor: [17, 34], popupAnchor: [0, -34] }),
-        plata: L.divIcon({ className: 'korva-marker', html: '<div class="korva-marker-pin korva-marker-plata"><i class="fas fa-star"></i></div>', iconSize: [34, 34], iconAnchor: [17, 34], popupAnchor: [0, -34] }),
-        bronce: L.divIcon({ className: 'korva-marker', html: '<div class="korva-marker-pin korva-marker-bronce"><i class="fas fa-building"></i></div>', iconSize: [34, 34], iconAnchor: [17, 34], popupAnchor: [0, -34] })
+        vip: L.divIcon({ className: 'korva-marker', html: '<div class="korva-marker-pin korva-marker-vip"><i class="fas fa-crown"></i></div>', iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -32] }),
+        oro: L.divIcon({ className: 'korva-marker', html: '<div class="korva-marker-pin korva-marker-oro"><i class="fas fa-medal"></i></div>', iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -32] }),
+        plata: L.divIcon({ className: 'korva-marker', html: '<div class="korva-marker-pin korva-marker-plata"><i class="fas fa-star"></i></div>', iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -32] }),
+        bronce: L.divIcon({ className: 'korva-marker', html: '<div class="korva-marker-pin korva-marker-bronce"><i class="fas fa-building"></i></div>', iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -32] })
     };
 
-    var markerLayer = L.layerGroup().addTo(map);
+    var cluster = L.markerClusterGroup({
+        maxClusterRadius: 48,
+        spiderfyOnMaxZoom: true,
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true,
+        iconCreateFunction: function (c) {
+            var n = c.getChildCount();
+            var cls = n < 10 ? 'korva-cluster-small' : (n < 100 ? 'korva-cluster-medium' : 'korva-cluster-large');
+            return L.divIcon({ html: '<div><span>' + n + '</span></div>', className: 'korva-cluster ' + cls, iconSize: L.point(46, 46) });
+        }
+    }).addTo(map);
 
+    /* ---------- Estado de marcadores/tarjetas ---------- */
+    var markersById = {};
+    var cardsById = {};
+    var currentActive = null;
+
+    function setActiveCard(id) {
+        if (currentActive === id) return;
+        if (currentActive && cardsById[currentActive]) {
+            cardsById[currentActive].classList.remove('map-card-active');
+        }
+        currentActive = id;
+        if (id && cardsById[id]) {
+            cardsById[id].classList.add('map-card-active');
+            if (cardsById[id].scrollIntoView) cardsById[id].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+    }
+
+    function focusMarker(marker) {
+        setActiveCard(marker._bid);
+        if (cluster.hasLayer(marker)) {
+            cluster.zoomToShowLayer(marker, function () { marker.openPopup(); });
+        } else {
+            map.panTo(marker.getLatLng(), { animate: true });
+            marker.openPopup();
+        }
+    }
+
+    function logoHTML(b) {
+        return b.logo
+            ? '<img src="' + esc(b.logo) + '" class="w-10 h-10 rounded-full object-cover">'
+            : '<div class="w-10 h-10 rounded-full border border-korva-success flex items-center justify-center text-korva-success text-sm shrink-0"><i class="fas fa-building"></i></div>';
+    }
+
+    function popupHTML(b) {
+        var v = b.verified ? ' <span class="text-korva-success" title="Verificado"><i class="fas fa-check-circle"></i></span>' : '';
+        var bio = b.bio ? '<p class="text-gray-400 text-xs mt-1">' + esc(b.bio) + '</p>' : '';
+        return '<div style="min-width:230px">' +
+            '<div class="flex items-center gap-3 mb-2">' + logoHTML(b) +
+            '<div><div class="font-bold text-white text-sm leading-tight">' + esc(b.name) + v + '</div>' +
+            '<div class="text-gray-400 text-xs">' + esc(b.city_display) + ' · ' + esc(b.sector_display) + '</div></div></div>' +
+            bio +
+            '<div class="flex flex-wrap items-center gap-2 my-2">' +
+            '<span class="korva-chip text-xs">' + esc(b.tier_display) + '</span>' +
+            '<span class="text-gray-500 text-xs"><i class="fas fa-fire"></i> ' + b.popularity + ' pts</span>' +
+            '<span class="text-gray-500 text-xs"><i class="fas fa-users"></i> ' + b.followers + ' seg.</span>' +
+            '<span class="text-gray-500 text-xs"><i class="fas fa-box"></i> ' + b.products_count + ' prod.</span>' +
+            '</div>' +
+            '<a href="' + esc(b.profile_url) + '" class="korva-btn-primary px-3 py-1.5 rounded-lg text-xs inline-block w-full text-center">Ver negocio</a>' +
+            '</div>';
+    }
+
+    function cardHTML(b) {
+        var v = b.verified ? ' <i class="fas fa-check-circle text-korva-success text-[11px]"></i>' : '';
+        return '<a href="' + esc(b.profile_url) + '" data-bid="' + esc(b.id) + '" class="map-card flex items-start gap-3 rounded-xl border border-korva-dark-alt p-3 block">' +
+            logoHTML(b) +
+            '<div class="min-w-0 flex-1">' +
+            '<div class="flex items-center gap-1.5 font-semibold text-gray-200 text-sm leading-tight truncate">' +
+            '<span class="truncate">' + esc(b.name) + '</span>' + v + '</div>' +
+            '<div class="text-xs text-gray-500 mt-0.5 truncate"><i class="fas fa-map-marker-alt mr-1"></i>' +
+            esc(b.city_display) + ' · ' + esc(b.sector_display) + '</div>' +
+            '<div class="flex flex-wrap gap-2 mt-1.5 text-[11px] text-gray-500">' +
+            '<span><i class="fas fa-fire mr-1"></i>' + b.popularity + ' pts</span>' +
+            '<span><i class="fas fa-users mr-1"></i>' + b.followers + '</span>' +
+            '<span><i class="fas fa-box mr-1"></i>' + b.products_count + '</span>' +
+            '</div></div>' +
+            '<i class="fas fa-chevron-right text-gray-600 mt-1.5 text-xs"></i></a>';
+    }
+
+    function buildCards(data) {
+        var list = document.getElementById('map-panel-list');
+        var title = document.getElementById('panel-title');
+        cardsById = {};
+        list.innerHTML = '';
+        title.textContent = 'Negocios (' + data.length + ')';
+        if (data.length === 0) {
+            list.innerHTML = '<p class="text-gray-500 text-sm px-2 py-8 text-center"><i class="fas fa-search-location mr-2"></i>No hay negocios que coincidan con los filtros.</p>';
+            return;
+        }
+        data.forEach(function (b) {
+            var el = document.createElement('div');
+            el.innerHTML = cardHTML(b);
+            var card = el.firstChild;
+            card.addEventListener('mouseenter', function () {
+                focusMarker(markersById[b.id]);
+            });
+            list.appendChild(card);
+            cardsById[b.id] = card;
+        });
+    }
+
+    function buildFiltersChips() {
+        var wrap = document.getElementById('active-filters');
+        wrap.innerHTML = '';
+        var p = currentParams();
+        if (!p.toString()) return;
+        p.forEach(function (v, k) {
+            var chip = document.createElement('span');
+            chip.className = 'text-[11px] px-2 py-0.5 rounded-full border border-korva-success/40 text-korva-success bg-korva-success/5';
+            var labels = { city: 'Ciudad', sector: 'Sector', q: 'Búsqueda' };
+            chip.textContent = labels[k] + ': ' + v;
+            wrap.appendChild(chip);
+        });
+    }
+
+    function syncURL() {
+        var p = currentParams();
+        var url = window.location.pathname + (p.toString() ? '?' + p.toString() : '');
+        history.replaceState({}, '', url);
+    }
+
+    function setStatus(html, isError) {
+        document.getElementById('map-stats').innerHTML =
+            '<span class="' + (isError ? 'text-red-400' : '') + '">' + html + '</span>';
+    }
+
+    /* ---------- Render y carga ---------- */
     function render(data) {
-        markerLayer.clearLayers();
+        cluster.clearLayers();
+        markersById = {};
+
         var bounds = [];
         data.forEach(function (b) {
-            var icon = icons[b.tier] || icons.bronce;
-            var m = L.marker([b.lat, b.lng], { icon: icon }).addTo(markerLayer);
+            var m = L.marker([b.lat, b.lng], { icon: icons[b.tier] || icons.bronce });
+            m._bid = b.id;
+            m.bindPopup(popupHTML(b), { maxWidth: 280 });
+            m.on('mouseover', function () { setActiveCard(b.id); });
+            cluster.addLayer(m);
+            markersById[b.id] = m;
             bounds.push([b.lat, b.lng]);
-
-            var logoHTML = b.logo
-                ? '<img src="' + b.logo + '" class="w-9 h-9 rounded-full object-cover">'
-                : '<div class="w-9 h-9 rounded-full bg-korva-success flex items-center justify-center text-white text-xs"><i class="fas fa-building"></i></div>';
-
-            var verifiedHTML = b.verified ? ' <span class="text-korva-success" title="Verificado"><i class="fas fa-check-circle"></i></span>' : '';
-            var tierBadge = '<span class="korva-chip text-xs">' + b.tier_display + '</span>';
-
-            m.bindPopup(
-                '<div class="min-w-[220px]">' +
-                '<div class="flex items-center gap-3 mb-2">' + logoHTML + 
-                '<div><div class="font-bold text-white text-sm leading-tight">' + b.name + verifiedHTML + '</div>' +
-                '<div class="text-gray-400 text-xs">' + b.city_display + ' · ' + b.sector_display + '</div></div></div>' +
-                '<div class="flex items-center gap-2 mb-3">' + tierBadge +
-                '<span class="text-gray-500 text-xs"><i class="fas fa-fire"></i> ' + b.popularity + ' pts</span></div>' +
-                '<a href="' + b.profile_url + '" class="korva-btn-primary px-3 py-1.5 rounded-lg text-xs inline-block w-full text-center">Ver negocio</a>' +
-                '</div>'
-            );
         });
 
         if (bounds.length > 0) {
-            map.fitBounds(bounds, { padding: [60, 60] });
+            map.fitBounds(bounds, { padding: [50, 50], maxZoom: 13 });
         } else {
             map.setView([12.8654, -85.2072], 7); // Nicaragua
         }
 
-        document.getElementById('map-stats').textContent =
-            data.length + (data.length === 1 ? ' negocio en el mapa' : ' negocios en el mapa');
+        setStatus(bounds.length === 1
+            ? '<i class="fas fa-store mr-2 text-korva-success"></i>1 negocio en el mapa'
+            : '<i class="fas fa-store mr-2 text-korva-success"></i>' + bounds.length + ' negocios en el mapa');
     }
 
     function loadData() {
-        var params = new URLSearchParams();
-        var city = document.getElementById('f-city').value;
-        var sector = document.getElementById('f-sector').value;
-        var q = document.getElementById('f-q').value.trim();
-        if (city) params.set('city', city);
-        if (sector) params.set('sector', sector);
-        if (q) params.set('q', q);
-
-        document.getElementById('map-stats').textContent = 'Cargando negocios...';
-        fetch('{{ map_data_url }}' + '?' + params.toString())
+        var params = currentParams();
+        syncURL();
+        buildFiltersChips();
+        document.getElementById('map-panel-list').innerHTML =
+            '<p class="text-gray-500 text-sm px-2 py-8 text-center"><i class="fas fa-spinner fa-spin mr-2"></i>Cargando negocios...</p>';
+        setStatus('<i class="fas fa-spinner fa-spin mr-2"></i>Cargando negocios...');
+        fetch('{{ map_data_url }}?' + params.toString())
             .then(function (r) { return r.json(); })
-            .then(function (j) { render(j.businesses); })
+            .then(function (j) {
+                render(j.businesses || []);
+                buildCards(j.businesses || []);
+            })
             .catch(function () {
-                document.getElementById('map-stats').textContent = 'Error al cargar negocios.';
+                document.getElementById('map-panel-list').innerHTML =
+                    '<p class="text-gray-500 text-sm px-2 py-8 text-center"><i class="fas fa-exclamation-triangle mr-2"></i>Error al cargar negocios.</p>';
+                setStatus('<i class="fas fa-exclamation-triangle mr-2"></i>Error al cargar negocios.', true);
             });
     }
 
+    /* ---------- Eventos ---------- */
     document.getElementById('map-filter-form').addEventListener('submit', function (e) {
         e.preventDefault();
         loadData();
     });
 
-    loadData();
+    document.getElementById('map-share-btn').addEventListener('click', function () {
+        var url = window.location.href;
+        var done = function () {
+            var btn = document.getElementById('map-share-btn');
+            var old = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-check mr-2"></i> Link copiado';
+            setTimeout(function () { btn.innerHTML = old; }, 2000);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(url).then(done, done);
+        } else {
+            var ta = document.createElement('textarea');
+            ta.value = url; document.body.appendChild(ta); ta.select();
+            try { document.execCommand('copy'); } catch (x) {}
+            document.body.removeChild(ta);
+            done();
+        }
+    });
 
+    /* ---------- Cargar filtros desde la URL ---------- */
+    (function initFromURL() {
+        var p = new URLSearchParams(window.location.search);
+        if (p.has('city')) document.getElementById('f-city').value = p.get('city');
+        if (p.has('sector')) document.getElementById('f-sector').value = p.get('sector');
+        if (p.has('q')) document.getElementById('f-q').value = p.get('q');
+        if (p.toString()) buildFiltersChips();
+    })();
+
+    loadData();
     setTimeout(function () { map.invalidateSize(); }, 200);
+    window.addEventListener('resize', function () { map.invalidateSize(); });
 });
 </script>
-<style>
-.leaflet-popup-content-wrapper { background: #14181f; color: #d1d5db; border: 1px solid #232a36; border-radius: 12px; }
-.leaflet-popup-tip { background: #14181f; border: 1px solid #232a36; }
-.leaflet-popup-content { margin: 14px 16px; line-height: 1.4; }
-.leaflet-container { background: #0c0f14; font-family: inherit; }
-.korva-marker-pin { width: 34px; height: 34px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); display: flex; align-items: center; justify-content: center; border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.4); }
-.korva-marker-pin i { transform: rotate(45deg); font-size: 13px; color: #fff; }
-.korva-marker-vip { background: #8b5cf6; }
-.korva-marker-oro { background: #f59e0b; }
-.korva-marker-plata { background: #94a3b8; }
-.korva-marker-bronce { background: #b45309; }
-</style>
 {% endblock %}

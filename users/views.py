@@ -235,6 +235,13 @@ def edit_profile(request):
         form = ProfileUpdateForm(request.POST, request.FILES, instance=profile)
         if form.is_valid():
             form.save()
+            # Si no hay coordenadas todavía, intentar geocodificar la ciudad (OSM Nominatim)
+            if not profile.latitude and profile.city != 'otra':
+                try:
+                    from core.geocode import ensure_geo
+                    ensure_geo(profile)
+                except Exception:
+                    pass
             messages.success(request, 'Perfil actualizado correctamente.')
             return redirect('profile', username=request.user.username)
     else:
