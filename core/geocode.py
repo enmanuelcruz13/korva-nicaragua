@@ -33,6 +33,8 @@ CITY_COORDS = {
     'ciudad_sandino': (12.1565, -86.3529),
     'posoltega': (12.5430, -86.9790),
     'la_paz_centro': (12.3400, -86.6600),
+    'san_carlos': (11.4308, -84.7776),
+    'bilwi': (14.0358, -83.3786),
 }
 
 _CACHE = {}
