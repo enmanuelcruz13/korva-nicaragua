@@ -6,15 +6,68 @@
 <link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
 <link rel="stylesheet" href="{% static 'vendor/markercluster/MarkerCluster.css' %}">
 <style>
-/* ---- Tema oscuro para popups y controles ---- */
+/* ---- Layout full-screen ---- */
+#map-stage { position: relative; height: calc(100vh - 64px); min-height: 520px; }
+@supports (height: 100dvh) { #map-stage { height: calc(100dvh - 64px); } }
+#korva-map { position: absolute; inset: 0; z-index: 0; }
+.leaflet-container { font-family: inherit; background: #e8ecef; }
+
+/* ---- Toolbar flotante ---- */
+.map-toolbar {
+    position: absolute; left: 12px; right: 12px; top: 12px; z-index: 450;
+    background: rgba(17,24,39,.96);
+    border: 1px solid rgba(255,255,255,.1); border-radius: 14px;
+    box-shadow: 0 8px 28px rgba(0,0,0,.35);
+    padding: 10px 12px;
+}
+
+/* ---- Panel lateral flotante ---- */
+.map-panel-frame {
+    position: absolute; z-index: 500;
+    display: flex; flex-direction: column; overflow: hidden;
+    background: rgba(17,24,39,.97);
+    border: 1px solid rgba(255,255,255,.1); border-radius: 16px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.5);
+    transition: transform .25s ease, opacity .25s ease;
+}
+@media (min-width: 1024px) {
+    .map-panel-frame { top: 124px; right: 12px; bottom: 12px; width: 330px; }
+}
+@media (max-width: 1023.98px) {
+    .map-panel-frame { left: 12px; right: 12px; bottom: 12px; max-height: 62vh; }
+}
+.map-panel-collapsed { transform: translateX(24px); opacity: 0; pointer-events: none; }
+@media (max-width: 1023.98px) { .map-panel-collapsed { transform: translateY(16px); } }
+
+.map-toggle-btn { position: absolute; z-index: 460; right: 12px; top: 124px; }
+@media (max-width: 1023.98px) { .map-toggle-btn { top: auto; bottom: 92px; } }
+
+#map-panel-list { flex: 1; overflow-y: auto; }
+#map-panel-list::-webkit-scrollbar { width: 6px; }
+#map-panel-list::-webkit-scrollbar-thumb { background: rgba(148,163,184,.35); border-radius: 3px; }
+
+/* ---- Filas del panel ---- */
+.map-row { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-bottom: 1px solid rgba(63,78,100,.35); cursor: pointer; transition: background .15s ease; }
+.map-row:hover { background: rgba(34,197,94,.08); }
+.map-row-active { background: rgba(34,197,94,.14) !important; box-shadow: inset 3px 0 0 #22c55e; }
+.map-row-chevron { opacity: 0; transform: translateX(-4px); color: #64748b; font-size: 11px; margin-top: 6px; transition: all .15s ease; }
+.map-row:hover .map-row-chevron { opacity: 1; transform: none; }
+.map-row img { background: #0f172a; }
+
+/* ---- Leyenda ---- */
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #9ca3af; }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,.35); }
+
+/* ---- Popups claros ---- */
 .leaflet-popup-content-wrapper { background: #ffffff; color: #1f2937; border-radius: 14px; box-shadow: 0 10px 30px rgba(15,23,42,.28); }
 .leaflet-popup-tip { background: #ffffff; }
 .leaflet-popup-content { margin: 14px 16px; line-height: 1.45; font-size: 14px; }
-.leaflet-container { background: #e8ecef; font-family: inherit; }
 .leaflet-container a.leaflet-popup-close-button { color: #64748b; }
+
+/* ---- Controles ---- */
 .leaflet-control-zoom a { background: #ffffff !important; color: #0f172a !important; border-color: #e2e8f0 !important; }
 .leaflet-control-zoom a:hover { background: #f8fafc !important; color: #16a34a !important; }
-.leaflet-control-attribution { background: rgba(255,255,255,.85) !important; color: #64748b !important; }
+.leaflet-control-attribution { background: rgba(255,255,255,.85) !important; color: #64748b !important; font-size: 10px; }
 .leaflet-control-attribution a { color: #0f9d58 !important; }
 .leaflet-bar { border-color: #e2e8f0 !important; box-shadow: 0 2px 10px rgba(15,23,42,.12); }
 
@@ -22,150 +75,104 @@
 .korva-marker-pin { width: 32px; height: 32px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); display: flex; align-items: center; justify-content: center; border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.4); transition: transform .18s ease, box-shadow .18s ease; }
 .korva-marker-active .korva-marker-pin { transform: rotate(-45deg) scale(1.3); box-shadow: 0 4px 14px rgba(0,0,0,.45); }
 .korva-marker-active { z-index: 600 !important; }
-.korva-marker-pin i { transform: rotate(45deg); font-size: 13px; color: #fff; }
 .korva-marker-vip { background: #8b5cf6; }
 .korva-marker-oro { background: #f59e0b; }
 .korva-marker-plata { background: #64748b; }
 .korva-marker-bronce { background: #b45309; }
 
-/* ---- Clusters (tema Korva) ---- */
+/* ---- Clusters ---- */
 .korva-cluster { background: transparent; border: none; }
 .korva-cluster div {
-    width: 44px; height: 44px; margin: 0;
-    border-radius: 50%;
+    width: 44px; height: 44px; margin: 0; border-radius: 50%;
     background: radial-gradient(circle at 30% 25%, rgba(34,197,94,.95), rgba(21,128,61,.95));
     color: #052e16; font-weight: 800; font-size: 14px;
     display: flex; align-items: center; justify-content: center;
     box-shadow: 0 0 0 3px rgba(34,197,94,.25), 0 4px 12px rgba(0,0,0,.45);
-    transition: transform .15s ease;
 }
 .korva-cluster.korva-cluster-medium div { background: radial-gradient(circle at 30% 25%, rgba(251,191,36,.95), rgba(217,119,6,.95)); color: #451a03; }
 .korva-cluster.korva-cluster-large div { background: radial-gradient(circle at 30% 25%, rgba(139,92,246,.95), rgba(109,40,217,.95)); color: #f5f3ff; }
 .korva-cluster:hover div { transform: scale(1.12); }
 
-/* ---- Botón de ubicación ---- */
-.korva-locate-btn a {
-    background: #ffffff; color: #16a34a; width: 30px; height: 30px;
-    line-height: 30px; text-align: center; display: block; border-radius: 4px;
-}
-.korva-locate-btn a:hover { background: #f8fafc; }
-
-/* ---- Marcador "Estás aquí" ---- */
+/* ---- Estás aquí ---- */
 .korva-user-dot { width: 16px; height: 16px; border-radius: 50%; background: #3b82f6; border: 3px solid #fff; position: relative; }
 .korva-user-dot::after { content: ''; position: absolute; inset: -12px; border-radius: 50%; border: 2px solid rgba(59,130,246,.55); animation: korva-pulse 1.6s ease-out infinite; }
 @keyframes korva-pulse { 0% { transform: scale(.4); opacity: 1; } 100% { transform: scale(1.15); opacity: 0; } }
-
-/* ---- Panel lateral (lista limpia) ---- */
-#map-panel-list { max-height: 480px; }
-@media (min-width: 1024px) { #map-panel-list { max-height: calc(70vh - 128px); } }
-.map-row { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-bottom: 1px solid rgba(63,78,100,.35); cursor: pointer; transition: background .15s ease; }
-.map-row:hover { background: rgba(34,197,94,.07); }
-.map-row-active { background: rgba(34,197,94,.12) !important; box-shadow: inset 3px 0 0 #22c55e; }
-.map-row-chevron { opacity: 0; transform: translateX(-4px); color: #64748b; font-size: 11px; margin-top: 6px; transition: all .15s ease; }
-.map-row:hover .map-row-chevron { opacity: 1; transform: none; }
-.map-row img { background: #0f172a; }
-.legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #9ca3af; }
-.legend-dot { width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,.35); }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="max-w-[1400px] mx-auto px-4 py-8">
-    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div>
-            <h1 class="text-2xl sm:text-3xl font-bold text-white mb-2">
-                <i class="fas fa-map-marked-alt text-korva-success mr-2"></i> Mapa de Negocios
-            </h1>
-            <p class="text-gray-400 text-sm">
-                Encuentra los negocios de Korva Nicaragua por ciudad, sector o nombre
-            </p>
-        </div>
-        <div class="flex gap-3">
-            <button type="button" id="map-share-btn" class="px-4 py-2 bg-korva-dark-alt rounded-lg text-sm font-semibold text-white hover:bg-korva-dark transition border border-korva-dark-alt">
-                <i class="fas fa-share-alt mr-2"></i> Compartir vista
-            </button>
-            <a href="{% url 'marketplace' %}" class="korva-btn-primary px-4 py-2 rounded-lg text-sm">
-                <i class="fas fa-store mr-2"></i> Marketplace
-            </a>
-        </div>
-    </div>
+<div id="map-stage">
+    <div id="korva-map"></div>
 
-    <!-- Filtros y búsqueda -->
-    <div class="korva-card rounded-xl border border-korva-dark-alt p-4 mb-4">
-        <form id="map-filter-form" method="get" class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-            <div>
-                <label for="f-city" class="block text-xs text-gray-400 mb-1">Ciudad</label>
-                <select id="f-city" name="city" class="korva-input w-full">
+    <!-- Toolbar flotante -->
+    <div class="map-toolbar">
+        <div class="flex flex-wrap items-center gap-2 mb-2">
+            <h1 class="font-bold text-white text-base mr-2 hidden sm:flex items-center gap-2">
+                <i class="fas fa-map-marked-alt text-korva-success"></i>Mapa de Negocios
+            </h1>
+            <span id="map-status" class="text-gray-400 text-xs flex-1 min-w-[120px]"></span>
+            <div class="flex items-center gap-2">
+                <button type="button" id="map-locate-btn" class="px-3 py-2 bg-korva-dark-alt text-green-400 rounded-lg text-xs font-semibold hover:bg-korva-dark transition">
+                    <i class="fas fa-location-crosshairs mr-1"></i><span class="hidden md:inline">Mi ubicación</span>
+                </button>
+                <button type="button" id="map-share-btn" class="px-3 py-2 bg-korva-dark-alt text-white rounded-lg text-xs font-semibold hover:bg-korva-dark transition border border-korva-dark-alt">
+                    <i class="fas fa-share-alt mr-1"></i><span class="hidden md:inline">Compartir</span>
+                </button>
+                <a href="{% url 'marketplace' %}" class="korva-btn-primary px-3 py-2 rounded-lg text-xs"><i class="fas fa-store mr-1"></i><span class="hidden md:inline">Marketplace</span></a>
+            </div>
+        </div>
+        <form id="map-filter-form" method="get" class="flex flex-wrap items-end gap-2">
+            <div class="min-w-[180px] flex-1">
+                <label for="f-q" class="block text-[11px] text-white/60 mb-1">Buscar negocio</label>
+                <input id="f-q" type="text" name="q" value="{{ q|default:'' }}" placeholder="Ej: panadería, café, tecnología..." class="korva-input w-full text-sm">
+            </div>
+            <div class="w-[170px]">
+                <label for="f-city" class="block text-[11px] text-white/60 mb-1">Ciudad</label>
+                <select id="f-city" name="city" class="korva-input w-full text-sm">
                     <option value="">Todas</option>
-                    {% for c in profile_cities %}
-                    <option value="{{ c.0 }}" {% if city == c.0 %}selected{% endif %}>{{ c.1 }}</option>
-                    {% endfor %}
+                    {% for c in profile_cities %}<option value="{{ c.0 }}" {% if city == c.0 %}selected{% endif %}>{{ c.1 }}</option>{% endfor %}
                 </select>
             </div>
-            <div>
-                <label for="f-sector" class="block text-xs text-gray-400 mb-1">Sector</label>
-                <select id="f-sector" name="sector" class="korva-input w-full">
+            <div class="w-[160px]">
+                <label for="f-sector" class="block text-[11px] text-white/60 mb-1">Sector</label>
+                <select id="f-sector" name="sector" class="korva-input w-full text-sm">
                     <option value="">Todos</option>
-                    {% for s in profile_sectors %}
-                    <option value="{{ s.0 }}" {% if sector == s.0 %}selected{% endif %}>{{ s.1 }}</option>
-                    {% endfor %}
+                    {% for s in profile_sectors %}<option value="{{ s.0 }}" {% if sector == s.0 %}selected{% endif %}>{{ s.1 }}</option>{% endfor %}
                 </select>
             </div>
-            <div class="md:col-span-2">
-                <label for="f-q" class="block text-xs text-gray-400 mb-1">Buscar negocio</label>
-                <input id="f-q" type="text" name="q" value="{{ q|default:'' }}"
-                       placeholder="Ej: panadería, café, tecnología..."
-                       class="korva-input w-full">
-            </div>
-            <div class="flex gap-2 md:col-span-4">
-                <button type="submit" class="korva-btn-primary px-5 py-2 rounded-lg text-sm font-semibold">
-                    <i class="fas fa-filter mr-2"></i> Filtrar
-                </button>
-                <a href="{% url 'business_map' %}" id="map-reset-btn"
-                   class="px-5 py-2 bg-korva-dark-alt text-gray-300 rounded-lg text-sm font-semibold border border-korva-dark-alt
-                          {% if not city and not sector and not q %}pointer-events-none opacity-40{% endif %}">
-                    Limpiar
-                </a>
-                <button type="button" id="map-locate-btn"
-                        class="px-5 py-2 bg-korva-dark-alt text-green-400 rounded-lg text-sm font-semibold border border-korva-dark-alt hover:bg-korva-dark transition">
-                    <i class="fas fa-location-crosshairs mr-2"></i> Mi ubicación
-                </button>
+            <div class="flex items-center gap-2">
+                <button type="submit" class="korva-btn-primary px-4 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-filter mr-1"></i>Filtrar</button>
+                <a href="{% url 'business_map' %}" id="map-reset-btn" class="px-4 py-2 bg-korva-dark-alt text-gray-300 rounded-lg text-sm font-semibold border border-korva-dark-alt {% if not city and not sector and not q %}pointer-events-none opacity-40{% endif %}">Limpiar</a>
             </div>
         </form>
     </div>
 
-    <!-- Mapa + Panel lateral -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        <div class="lg:col-span-8 korva-card rounded-xl border border-korva-dark-alt overflow-hidden">
-            <div id="korva-map" class="w-full" style="height: 70vh; min-height: 480px;"></div>
-        </div>
+    <!-- Botón para abrir el panel -->
+    <button type="button" id="panel-open-btn" class="map-toggle-btn hidden items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold text-white bg-korva-dark border border-korva-dark-alt shadow-lg hover:bg-korva-success hover:text-white transition" title="Ver lista de negocios">
+        <i class="fas fa-list text-korva-success"></i> Negocios
+    </button>
 
-        <div class="lg:col-span-4 korva-card rounded-xl border border-korva-dark-alt flex flex-col overflow-hidden">
-            <div class="p-4 border-b border-korva-dark-alt">
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                    <h2 class="font-bold text-white text-sm">
-                        <i class="fas fa-store text-korva-success mr-2"></i><span id="panel-title">Negocios</span>
-                    </h2>
-                    <div id="active-filters" class="flex flex-wrap gap-1.5"></div>
-                </div>
-                <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-3">
-                    <span class="legend-item"><span class="legend-dot bg-violet-500"></span>VIP</span>
-                    <span class="legend-item"><span class="legend-dot bg-amber-500"></span>Oro</span>
-                    <span class="legend-item"><span class="legend-dot bg-slate-500"></span>Plata</span>
-                    <span class="legend-item"><span class="legend-dot bg-amber-800"></span>Bronce</span>
-                </div>
-            </div>
-            <div id="map-panel-list" class="overflow-y-auto">
-                <p class="text-gray-500 text-sm px-4 py-8 text-center">
-                    <i class="fas fa-spinner fa-spin mr-2"></i>Cargando negocios...
-                </p>
+    <!-- Panel lateral flotante -->
+    <aside id="map-panel" class="map-panel-frame">
+        <div class="p-4 border-b border-korva-dark-alt flex items-center justify-between gap-2">
+            <h2 class="font-bold text-white text-sm flex items-center gap-2">
+                <i class="fas fa-store text-korva-success"></i><span id="panel-title">Negocios</span>
+            </h2>
+            <div class="flex items-center gap-2">
+                <div id="active-filters" class="flex flex-wrap gap-1.5"></div>
+                <button type="button" id="panel-close-btn" class="text-gray-400 hover:text-white transition" title="Ocultar lista"><i class="fas fa-times"></i></button>
             </div>
         </div>
-    </div>
-
-    <div id="map-stats" class="mt-4 text-sm text-gray-400 flex flex-wrap items-center gap-3">
-        <span class="text-gray-400">Cargando negocios...</span>
-    </div>
+        <div class="px-4 py-2.5 border-b border-korva-dark-alt flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span class="legend-item"><span class="legend-dot bg-violet-500"></span>VIP</span>
+            <span class="legend-item"><span class="legend-dot bg-amber-500"></span>Oro</span>
+            <span class="legend-item"><span class="legend-dot bg-slate-500"></span>Plata</span>
+            <span class="legend-item"><span class="legend-dot bg-amber-800"></span>Bronce</span>
+        </div>
+        <div id="map-panel-list">
+            <p class="text-gray-500 text-sm px-4 py-8 text-center"><i class="fas fa-spinner fa-spin mr-2"></i>Cargando negocios...</p>
+        </div>
+    </aside>
 </div>
 {% endblock %}
 
@@ -192,8 +199,9 @@ document.addEventListener('DOMContentLoaded', function () {
         return p;
     }
 
+    /* ---------- Mapa ---------- */
     var map = L.map('korva-map', { zoomControl: false });
-    L.control.zoom({ position: 'bottomright' }).addTo(map);
+    L.control.zoom({ position: 'bottomleft' }).addTo(map);
 
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
         maxZoom: 19,
@@ -201,19 +209,36 @@ document.addEventListener('DOMContentLoaded', function () {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
     }).addTo(map);
 
-    L.control.scale({ imperial: false, position: 'bottomleft' }).addTo(map);
+    L.control.scale({ imperial: false, position: 'bottomright' }).addTo(map);
 
-    /* ---------- Botón "Mi ubicación" (control del mapa) ---------- */
+    /* ---------- Panel lateral (abrir/cerrar) ---------- */
+    var mapPanel = document.getElementById('map-panel');
+    var panelOpenBtn = document.getElementById('panel-open-btn');
+    var panelCloseBtn = document.getElementById('panel-close-btn');
+    function openPanel() {
+        mapPanel.classList.remove('map-panel-collapsed');
+        panelOpenBtn.classList.add('hidden');
+    }
+    function closePanel() {
+        mapPanel.classList.add('map-panel-collapsed');
+        panelOpenBtn.classList.remove('hidden');
+        panelOpenBtn.classList.add('flex');
+    }
+    panelOpenBtn.addEventListener('click', openPanel);
+    panelCloseBtn.addEventListener('click', closePanel);
+    if (window.innerWidth < 1024) closePanel();
+
+    /* ---------- Botón "Mi ubicación" ---------- */
     var userMarker = null;
     function userIcon() {
         return L.divIcon({ className: '', html: '<div class="korva-user-dot"></div>', iconSize: [16, 16], iconAnchor: [8, 8] });
     }
     function locateMe() {
         if (!navigator.geolocation) {
-            setStatus('Tu navegador no soporta geolocalización.', true);
+            setStatus('<i class="fas fa-exclamation-triangle mr-1 text-red-400"></i>Tu navegador no soporta geolocalización.', true);
             return;
         }
-        setStatus('<i class="fas fa-satellite-dish mr-2"></i>Obteniendo tu ubicación...');
+        setStatus('<i class="fas fa-satellite-dish mr-1 text-green-400"></i>Obteniendo tu ubicación...');
         navigator.geolocation.getCurrentPosition(function (pos) {
             var lat = pos.coords.latitude, lng = pos.coords.longitude;
             if (userMarker) map.removeLayer(userMarker);
@@ -221,21 +246,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 .addTo(map).bindPopup('<b style="color:#16a34a">Estás aquí</b>');
             map.setView([lat, lng], Math.max(map.getZoom(), 13));
             userMarker.openPopup();
-            setStatus('<i class="fas fa-location-crosshairs mr-2 text-korva-success"></i>' +
-                'Ubicación encontrada. Los negocios más cercanos están en tu área.');
+            setStatus('<i class="fas fa-location-crosshairs mr-1 text-green-400"></i>Ubicación encontrada.');
         }, function () {
-            setStatus('<i class="fas fa-exclamation-triangle mr-2"></i>No se pudo obtener tu ubicación.', true);
+            setStatus('<i class="fas fa-exclamation-triangle mr-1 text-red-400"></i>No se pudo obtener tu ubicación.', true);
         }, { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 });
     }
-    var locateControl = L.control({ position: 'topleft' });
-    locateControl.onAdd = function () {
-        var div = L.DomUtil.create('div', 'leaflet-bar leaflet-control korva-locate-btn');
-        div.innerHTML = '<a role="button" title="Mostrar mi ubicación" href="javascript:void(0)"><i class="fas fa-location-crosshairs"></i></a>';
-        L.DomEvent.disableClickPropagation(div);
-        L.DomEvent.on(div, 'click', locateMe);
-        return div;
-    };
-    locateControl.addTo(map);
     document.getElementById('map-locate-btn').addEventListener('click', locateMe);
 
     /* ---------- Marcadores por tier + clusters ---------- */
@@ -344,7 +359,7 @@ document.addEventListener('DOMContentLoaded', function () {
         list.innerHTML = '';
         title.textContent = 'Negocios (' + data.length + ')';
         if (data.length === 0) {
-            list.innerHTML = '<p class="text-gray-500 text-sm px-2 py-8 text-center"><i class="fas fa-search-location mr-2"></i>No hay negocios que coincidan con los filtros.</p>';
+            list.innerHTML = '<p class="text-gray-500 text-sm px-4 py-8 text-center"><i class="fas fa-search-location mr-2"></i>No hay negocios que coincidan con los filtros.</p>';
             return;
         }
         data.forEach(function (b) {
@@ -382,8 +397,9 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function setStatus(html, isError) {
-        document.getElementById('map-stats').innerHTML =
-            '<span class="' + (isError ? 'text-red-400' : '') + '">' + html + '</span>';
+        var span = document.getElementById('map-status');
+        span.className = 'text-xs flex-1 min-w-[120px]' + (isError ? ' text-red-400' : ' text-gray-400');
+        span.innerHTML = html;
     }
 
     /* ---------- Render y carga ---------- */
@@ -405,12 +421,10 @@ document.addEventListener('DOMContentLoaded', function () {
         if (bounds.length > 0) {
             map.fitBounds(bounds, { padding: [50, 50], maxZoom: 13 });
         } else {
-            map.setView([12.8654, -85.2072], 7); // Nicaragua
+            map.setView([12.8654, -85.2072], 7);
         }
 
-        setStatus(bounds.length === 1
-            ? '<i class="fas fa-store mr-2 text-korva-success"></i>1 negocio en el mapa'
-            : '<i class="fas fa-store mr-2 text-korva-success"></i>' + bounds.length + ' negocios en el mapa');
+        setStatus('<i class="fas fa-store mr-1 text-green-400"></i>' + (bounds.length === 1 ? '1 negocio en el mapa' : bounds.length + ' negocios en el mapa'));
     }
 
     function loadData() {
@@ -418,8 +432,8 @@ document.addEventListener('DOMContentLoaded', function () {
         syncURL();
         buildFiltersChips();
         document.getElementById('map-panel-list').innerHTML =
-            '<p class="text-gray-500 text-sm px-2 py-8 text-center"><i class="fas fa-spinner fa-spin mr-2"></i>Cargando negocios...</p>';
-        setStatus('<i class="fas fa-spinner fa-spin mr-2"></i>Cargando negocios...');
+            '<p class="text-gray-500 text-sm px-4 py-8 text-center"><i class="fas fa-spinner fa-spin mr-2"></i>Cargando negocios...</p>';
+        setStatus('<i class="fas fa-spinner fa-spin mr-1"></i>Cargando negocios...');
         fetch('{{ map_data_url }}?' + params.toString())
             .then(function (r) { return r.json(); })
             .then(function (j) {
@@ -428,8 +442,8 @@ document.addEventListener('DOMContentLoaded', function () {
             })
             .catch(function () {
                 document.getElementById('map-panel-list').innerHTML =
-                    '<p class="text-gray-500 text-sm px-2 py-8 text-center"><i class="fas fa-exclamation-triangle mr-2"></i>Error al cargar negocios.</p>';
-                setStatus('<i class="fas fa-exclamation-triangle mr-2"></i>Error al cargar negocios.', true);
+                    '<p class="text-gray-500 text-sm px-4 py-8 text-center"><i class="fas fa-exclamation-triangle mr-2"></i>Error al cargar negocios.</p>';
+                setStatus('<i class="fas fa-exclamation-triangle mr-1"></i>Error al cargar negocios.', true);
             });
     }
 
@@ -444,7 +458,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var done = function () {
             var btn = document.getElementById('map-share-btn');
             var old = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-check mr-2"></i> Link copiado';
+            btn.innerHTML = '<i class="fas fa-check mr-1"></i> Link copiado';
             setTimeout(function () { btn.innerHTML = old; }, 2000);
         };
         if (navigator.clipboard && navigator.clipboard.writeText) {
