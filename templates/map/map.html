@@ -80,6 +80,20 @@
 .korva-marker-plata { background: #64748b; }
 .korva-marker-bronce { background: #b45309; }
 
+/* ---- Marcadores con logo del negocio ---- */
+.korva-marker-logo {
+    width: 44px; height: 44px; border-radius: 50%;
+    background-color: #ffffff; background-size: cover; background-position: center;
+    border: 3px solid #94a3b8;
+    box-shadow: 0 2px 8px rgba(0,0,0,.45);
+    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.korva-marker-vip .korva-marker-logo, .korva-tier-vip .korva-marker-logo { border-color: #8b5cf6; }
+.korva-marker-oro .korva-marker-logo, .korva-tier-oro .korva-marker-logo { border-color: #f59e0b; }
+.korva-marker-plata .korva-marker-logo, .korva-tier-plata .korva-marker-logo { border-color: #94a3b8; }
+.korva-marker-bronce .korva-marker-logo, .korva-tier-bronce .korva-marker-logo { border-color: #b45309; }
+.korva-marker-active .korva-marker-logo { transform: scale(1.28); box-shadow: 0 5px 16px rgba(0,0,0,.5); }
+
 /* ---- Clusters ---- */
 .korva-cluster { background: transparent; border: none; }
 .korva-cluster div {
@@ -283,6 +297,20 @@ document.addEventListener('DOMContentLoaded', function () {
         bronce: L.divIcon({ className: 'korva-marker', html: '<div class="korva-marker-pin korva-marker-bronce"><i class="fas fa-building"></i></div>', iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -32] })
     };
 
+    function logoIcon(b) {
+        var tier = b.tier || 'bronce';
+        var html = b.logo
+            ? '<div class="korva-marker-logo korva-tier-' + tier + '" style="background-image:url(\'' + esc(b.logo) + '\')"></div>'
+            : '<div class="korva-marker-pin korva-marker-' + tier + '"><i class="fas fa-' + (tier === 'vip' ? 'crown' : tier === 'oro' ? 'medal' : tier === 'plata' ? 'star' : 'building') + '"></i></div>';
+        return L.divIcon({
+            className: 'korva-marker',
+            html: html,
+            iconSize: b.logo ? [44, 44] : [32, 32],
+            iconAnchor: b.logo ? [22, 22] : [16, 32],
+            popupAnchor: b.logo ? [0, -30] : [0, -32]
+        });
+    }
+
     var cluster = L.markerClusterGroup({
         maxClusterRadius: 48,
         spiderfyOnMaxZoom: true,
@@ -431,7 +459,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
         var bounds = [];
         data.forEach(function (b) {
-            var m = L.marker([b.lat, b.lng], { icon: icons[b.tier] || icons.bronce });
+            var icon = b.logo ? logoIcon(b) : (icons[b.tier] || icons.bronce);
+            var m = L.marker([b.lat, b.lng], { icon: icon });
             m._bid = b.id;
             m.bindPopup(popupHTML(b), { maxWidth: 280 });
             m.on('mouseover', function () { highlightMarker(b.id); });
