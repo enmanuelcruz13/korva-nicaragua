@@ -80,19 +80,21 @@
 .korva-marker-plata { background: #64748b; }
 .korva-marker-bronce { background: #b45309; }
 
-/* ---- Marcadores con logo del negocio ---- */
-.korva-marker-logo {
-    width: 44px; height: 44px; border-radius: 50%;
-    background-color: #ffffff; background-size: cover; background-position: center;
+/* ---- Marcadores: flor de sacuanjoche con el logo del negocio ---- */
+.sacu-marker { position: relative; width: 60px; height: 60px; }
+.sacu-marker svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.sacu-logo {
+    position: absolute; left: 50%; top: 50%; width: 25px; height: 25px;
+    transform: translate(-50%,-50%);
+    border-radius: 50%; background: #ffffff; object-fit: cover;
     border: 3px solid #94a3b8;
-    box-shadow: 0 2px 8px rgba(0,0,0,.45);
-    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    box-shadow: 0 1px 4px rgba(0,0,0,.35);
 }
-.korva-marker-vip .korva-marker-logo, .korva-tier-vip .korva-marker-logo { border-color: #8b5cf6; }
-.korva-marker-oro .korva-marker-logo, .korva-tier-oro .korva-marker-logo { border-color: #f59e0b; }
-.korva-marker-plata .korva-marker-logo, .korva-tier-plata .korva-marker-logo { border-color: #94a3b8; }
-.korva-marker-bronce .korva-marker-logo, .korva-tier-bronce .korva-marker-logo { border-color: #b45309; }
-.korva-marker-active .korva-marker-logo { transform: scale(1.28); box-shadow: 0 5px 16px rgba(0,0,0,.5); }
+.sacu-logo-vip { border-color: #8b5cf6; }
+.sacu-logo-oro { border-color: #f59e0b; }
+.sacu-logo-plata { border-color: #94a3b8; }
+.sacu-logo-bronce { border-color: #b45309; }
+.korva-marker-active .sacu-marker { transform: scale(1.2); }
 
 /* ---- Clusters ---- */
 .korva-cluster { background: transparent; border: none; }
@@ -298,16 +300,34 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     function logoIcon(b) {
+        if (!b.logo) return icons[b.tier] || icons.bronce;
         var tier = b.tier || 'bronce';
-        var html = b.logo
-            ? '<div class="korva-marker-logo korva-tier-' + tier + '" style="background-image:url(\'' + esc(b.logo) + '\')"></div>'
-            : '<div class="korva-marker-pin korva-marker-' + tier + '"><i class="fas fa-' + (tier === 'vip' ? 'crown' : tier === 'oro' ? 'medal' : tier === 'plata' ? 'star' : 'building') + '"></i></div>';
+        var petals = [0, 72, 144, 216, 288].map(function (a) {
+            return '<g transform="rotate(' + a + ' 40 40)"><ellipse class="sacu-petal" cx="40" cy="11" rx="12.5" ry="21.5"/></g>';
+        }).join('');
+        var html = '<div class="sacu-marker">' +
+            '<svg viewBox="0 0 80 80" aria-hidden="true">' +
+            '<defs>' +
+            '<radialGradient id="sacu-grad" cx="50%" cy="50%" r="50%">' +
+            '<stop offset="0%" stop-color="#ffe37a"/><stop offset="100%" stop-color="#f59e0b"/>' +
+            '</radialGradient>' +
+            '<filter id="sacu-shadow" x="-40%" y="-40%" width="180%" height="180%">' +
+            '<feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity=".35"/>' +
+            '</filter>' +
+            '</defs>' +
+            '<g filter="url(#sacu-shadow)">' +
+            petals +
+            '<circle class="sacu-core" cx="40" cy="40" r="16.5"/>' +
+            '</g>' +
+            '</svg>' +
+            '<img class="sacu-logo sacu-logo-' + tier + '" src="' + esc(b.logo) + '" alt="Logo de ' + esc(b.name) + '">' +
+            '</div>';
         return L.divIcon({
             className: 'korva-marker',
             html: html,
-            iconSize: b.logo ? [44, 44] : [32, 32],
-            iconAnchor: b.logo ? [22, 22] : [16, 32],
-            popupAnchor: b.logo ? [0, -30] : [0, -32]
+            iconSize: [60, 60],
+            iconAnchor: [30, 30],
+            popupAnchor: [0, -36]
         });
     }
 
