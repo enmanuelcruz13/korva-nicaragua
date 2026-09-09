@@ -97,6 +97,28 @@
 .korva-user-dot { width: 16px; height: 16px; border-radius: 50%; background: #3b82f6; border: 3px solid #fff; position: relative; }
 .korva-user-dot::after { content: ''; position: absolute; inset: -12px; border-radius: 50%; border: 2px solid rgba(59,130,246,.55); animation: korva-pulse 1.6s ease-out infinite; }
 @keyframes korva-pulse { 0% { transform: scale(.4); opacity: 1; } 100% { transform: scale(1.15); opacity: 0; } }
+
+/* ---- Tema claro: toolbar, panel y tarjetas en modo light ---- */
+html.light .map-toolbar {
+    background: rgba(255,255,255,.97);
+    border-color: rgba(16,24,40,.10);
+    box-shadow: 0 8px 28px rgba(16,24,40,.12);
+}
+html.light .map-panel-frame {
+    background: rgba(255,255,255,.98);
+    border-color: rgba(16,24,40,.10);
+    box-shadow: 0 12px 40px rgba(16,24,40,.16);
+}
+html.light .map-toggle-btn { box-shadow: 0 4px 16px rgba(16,24,40,.12); }
+html.light .map-row { border-bottom-color: rgba(16,24,40,.08); }
+html.light .map-row:hover { background: rgba(16,185,129,.06); }
+html.light .map-row-active { background: rgba(16,185,129,.10) !important; box-shadow: inset 3px 0 0 #10b981; }
+html.light .map-row img { background: #f1f5f9; }
+html.light .legend-item { color: #64748b; }
+html.light #map-panel-list::-webkit-scrollbar-thumb { background: rgba(148,163,184,.55); }
+html.light .text-gray-100 { color: #0f172a !important; }
+html.light [class*="text-white/"] { color: #475569 !important; }
+html.light .map-toolbar .text-green-400 { color: #059669 !important; }
 </style>
 {% endblock %}
 
