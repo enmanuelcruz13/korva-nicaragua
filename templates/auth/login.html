@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load socialaccount %}
 
 {% block title %}Iniciar Sesión - Korva Nicaragua{% endblock %}
 
@@ -46,6 +47,43 @@
                 <i class="fas fa-sign-in-alt mr-2"></i> Iniciar Sesión
             </button>
         </form>
+
+        {% if 'google' in korva_social_providers %}
+        <div class="mt-6">
+            <div class="flex items-center gap-3 mb-4">
+                <span class="flex-1 h-px bg-korva-dark-alt"></span>
+                <span class="text-sm text-gray-400">o continúa con</span>
+                <span class="flex-1 h-px bg-korva-dark-alt"></span>
+            </div>
+            <div class="grid {% if korva_social_providers|length == 1 %}grid-cols-1{% else %}grid-cols-3{% endif %} gap-3">
+                {% if 'google' in korva_social_providers %}
+                <a href="{% provider_login_url 'google' process='login' %}"
+                    class="flex items-center justify-center gap-2 px-2 py-2.5 rounded-lg border border-korva-dark-alt bg-korva-dark hover:bg-korva-dark-alt transition text-white text-sm font-semibold">
+                    <i class="fab fa-google text-lg" style="color:#ea4335"></i><span class="hidden sm:inline">Google</span>
+                </a>
+                {% endif %}
+                {% if 'facebook' in korva_social_providers %}
+                <a href="{% provider_login_url 'facebook' process='login' %}"
+                    class="flex items-center justify-center gap-2 px-2 py-2.5 rounded-lg border border-korva-dark-alt bg-korva-dark hover:bg-korva-dark-alt transition text-white text-sm font-semibold">
+                    <i class="fab fa-facebook-f text-lg" style="color:#1877f2"></i><span class="hidden sm:inline">Facebook</span>
+                </a>
+                {% endif %}
+                {% if 'instagram' in korva_social_providers %}
+                <a href="{% provider_login_url 'instagram' process='login' %}"
+                    class="flex items-center justify-center gap-2 px-2 py-2.5 rounded-lg border border-korva-dark-alt bg-korva-dark hover:bg-korva-dark-alt transition text-white text-sm font-semibold">
+                    <i class="fab fa-instagram text-lg" style="color:#E4405F"></i><span class="hidden sm:inline">Instagram</span>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% elif user.is_staff %}
+        <div class="mt-6 p-3 rounded-lg border border-amber-500/40 bg-amber-500/10">
+            <p class="text-xs text-amber-300 text-center">
+                <i class="fas fa-tools mr-1"></i>Login social: crea las apps OAuth y configúralas en
+                <a href="/admin/socialaccount/socialapp/" class="underline">/admin/socialaccount/socialapp/</a>.
+            </p>
+        </div>
+        {% endif %}
 
         <div class="mt-4 text-right">
             <a href="{% url 'password_reset' %}" class="text-sm text-korva-success hover:text-green-400">

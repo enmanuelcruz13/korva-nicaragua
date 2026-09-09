@@ -133,7 +133,20 @@ def login_view(request):
         else:
             messages.error(request, 'Usuario o contraseña incorrectos.')
     
-    return render(request, 'auth/login.html')
+    return render(request, 'auth/login.html', {
+        'korva_social_providers': korva_social_providers(),
+    })
+
+
+def korva_social_providers():
+    """Devuelve la lista de proveedores OAuth con SocialApp configurada (login social)."""
+    from allauth.socialaccount.models import SocialApp
+    return list(
+        SocialApp.objects
+        .filter(provider__in=['google', 'facebook', 'instagram'])
+        .values_list('provider', flat=True)
+        .distinct()
+    )
 
 
 def logout_view(request):

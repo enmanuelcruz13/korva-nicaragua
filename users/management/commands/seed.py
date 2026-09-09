@@ -5,6 +5,7 @@ from django.apps import apps
 from django.contrib.auth.models import User
 from users.models import Profile
 from core.geocode import CITY_COORDS
+from core.business_logos import save_business_logo
 import os
 
 # Un negocio de ejemplo por departamento/región (cubren las 17 unidades administrativas)
@@ -105,3 +106,28 @@ class Command(BaseCommand):
             Profile.objects.filter(pk=profile.pk).update(popularity_score=score)
             self.stdout.write(self.style.SUCCESS(f'  ✓ {username} ({city})'))
         self.stdout.write(self.style.SUCCESS(f'Negocios por departamento listos (creados: {created}, actualizados: {updated}).'))
+
+        self._ensure_business_logos()
+
+    def _ensure_business_logos(self):
+        """Genera un logo por defecto acorde al giro de cada negocio (idempotente).
+
+        Solo se regeneran los logos auto-generados (logotipo 'logos/auto_*'); los
+        subidos por usuarios se conservan. Se repite en cada build para que los
+        archivos existan sobre el disco efímero de Render.
+        """
+        total = 0
+        profiles = Profile.objects.select_related('user').exclude(user__username__iexact='admin')
+        for profile in profiles:
+            logo_name = (profile.logo.name or '') if profile.logo else ''
+            if logo_name and not logo_name.startswith('logos/auto_'):
+                if profile.logo.storage.exists(logo_name):
+                    continue
+            business_name = profile.business_name or profile.user.username
+            rel_name = save_business_logo(
+                profile.user.username, business_name, profile.sector, settings.MEDIA_ROOT
+            )
+            profile.logo.name = rel_name
+            profile.save(update_fields=['logo'])
+            total += 1
+        self.stdout.write(self.style.SUCCESS(f'Logos de negocios listos ({total} generados).'))

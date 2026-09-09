@@ -65,6 +65,7 @@ urlpatterns = [
     # Autenticación
     path('register/', register, name='register'),
     path('login/', login_view, name='login'),
+    path('accounts/', include('allauth.urls')),
     path('logout/', logout_view, name='logout'),
     path('verify-email/<uuid:token>/', verify_email, name='verify_email'),
     path('dashboard/', dashboard, name='dashboard'),
